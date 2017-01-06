@@ -93,8 +93,7 @@ ifStmt =
      cond  <- expression
      stmt1 <- statement
      stmt2 <- statement
-     pos <- getPosition
-     return $ If cond stmt1 stmt2 pos
+     return $ If cond stmt1 stmt2
 whileStmt :: Parser Stmt
 whileStmt =
   do reserved "while"
