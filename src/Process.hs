@@ -10,6 +10,9 @@ data Variable = Nil
               | IntVar Integer
               | DoubleVar Double
               | BoolVar Bool
+              | CharVar Char
+              | StringVar String
+              | ArrayVar Integer [Variable]
               deriving (Show, Typeable, Data) 
 type SymbolTable = Map.Map String Variable
 
@@ -30,21 +33,42 @@ evalStmt stmt = case stmt of
             val <- evalExpr cond;
             case val of
                 (BoolVar x) -> if x then (evalStmt stmt1) else (evalStmt stmt2)
-                otherwise -> return (error $ "incompatible type for condition variable: " ++ show (toConstr val))
+                otherwise -> error $ "incompatible type for condition variable: " ++ show (toConstr val)
         }
     (While cond stmt) ->
         do{
             val <- evalExpr cond;
             case val of
                 (BoolVar x) -> if x then (evalStmt stmt) >> (evalStmt (While cond stmt)) else (evalStmt Skip)
-                otherwise -> return (error $ "incompatible type for condition variable: " ++ show (toConstr val))
-        } 
+                otherwise -> error $ "incompatible type for condition variable: " ++ show (toConstr val)
+        }
+    (ArrayDef arrayName expr) ->
+        do{
+            symbolTable <- get;
+            length <- evalExpr expr;
+            case length of
+                (IntVar l) ->
+                    do{
+                        put (Map.insert arrayName (ArrayVar l (replicate (fromInteger l) Nil)) symbolTable);
+                        return ();
+                    }
+                otherwise -> error $ "incompatible type for array length: " ++ show (toConstr length)
+        }
+{-
+    (ArrayAssign arrayName expr expr) ->
+        do{
+            symbolTable <- get;
+            
+        }
+-}
 
 evalExpr :: Expr -> State SymbolTable Variable
 evalExpr expr = case expr of
-    (BoolConst x) -> return (BoolVar x)
-    (IntConst x) -> return (IntVar x)
-    (DoubleConst x) -> return (DoubleVar x)
+    (BoolLit x) -> return (BoolVar x)
+    (IntLit x) -> return (IntVar x)
+    (DoubleLit x) -> return (DoubleVar x)
+    (CharLit x) -> return (CharVar x)
+    (StringLit x) -> return (StringVar x)
     (Var varName) -> 
         do {
             symbolTable <- get;

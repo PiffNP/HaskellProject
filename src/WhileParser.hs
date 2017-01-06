@@ -15,15 +15,20 @@ data Stmt = StmtList [Stmt]
           | Skip          
           | If Expr Stmt Stmt 
           | While Expr Stmt
+          | ArrayDef String Expr
+          | ArrayAssign String Expr Expr
             deriving (Show)
-data Expr = BoolConst Bool 
-          | IntConst Integer
-          | DoubleConst Double
+data Expr = BoolLit Bool 
+          | IntLit Integer
+          | DoubleLit Double
+          | CharLit Char
+          | StringLit String
           | Var String
+          | ArrayEntry String Expr
           | ABinary ABinOp Expr Expr
           | Not Expr
           | BBinary BBinOp Expr Expr
-          | RBinary RBinOp Expr Expr          
+          | RBinary RBinOp Expr Expr
             deriving (Show)
 data BBinOp = And | Or deriving (Show)
 data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
@@ -37,7 +42,9 @@ lexer = Token.makeTokenParser emptyDef{
         Token.identLetter     = alphaNum,
         Token.reservedNames   = [ "if", "while", "begin", "do",
                                   "set!", "skip", "True", "False",
-                                  "not", "and", "or"
+                                  "not", "and", "or", "cons", "car",
+                                  "cdr", "vector-ref", "make-vector",
+                                  "vector-set!"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -50,7 +57,9 @@ reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
 integer    = Token.integer    lexer
 whiteSpace = Token.whiteSpace lexer
-float    = Token.float      lexer
+float      = Token.float      lexer
+charLiteral = Token.charLiteral lexer
+stringLiteral = Token.stringLiteral lexer 
 {-
 -- In case that TA insists that the parser can
 -- not recognize exponent.
@@ -74,6 +83,8 @@ statement =  try (parens stmtList)
          <|> skipStmt
          <|> try (parens ifStmt)
          <|> try (parens whileStmt)
+         <|> try (parens arrayDefStmt)
+         <|> try (parens arrayAssignStmt)
 stmtList :: Parser Stmt
 stmtList = 
   do reserved "begin"
@@ -100,17 +111,39 @@ whileStmt =
      cond <- expression
      stmt <- statement
      return $ While cond stmt
+arrayDefStmt :: Parser Stmt
+arrayDefStmt =
+  do reserved "make-vector"
+     var <- identifier
+     expr <- expression
+     return $ ArrayDef var expr
+arrayAssignStmt :: Parser Stmt
+arrayAssignStmt =
+  do reserved "vector-set!"
+     var <- identifier
+     indexExpr <- expression
+     valExpr <- expression
+     return $ ArrayAssign var indexExpr valExpr
 expression :: Parser Expr
 expression = constExpr
           <|> liftM Var identifier
+          <|> try (parens arrayEntryExpr)
           <|> try (parens aExpr)
           <|> try (parens bExpr)
           <|> try (parens rExpr)
 constExpr :: Parser Expr
-constExpr = try (liftM DoubleConst float)
-         <|> liftM IntConst integer
-         <|> (reserved "True"  >> return (BoolConst True ))
-         <|> (reserved "False" >> return (BoolConst False))
+constExpr = try (liftM DoubleLit float)
+         <|> liftM IntLit integer
+         <|> (reserved "True"  >> return (BoolLit True ))
+         <|> (reserved "False" >> return (BoolLit False))
+         <|> liftM CharLit charLiteral
+         <|> liftM StringLit stringLiteral
+arrayEntryExpr :: Parser Expr
+arrayEntryExpr =
+  do reserved "vector-ref"
+     var <- identifier
+     index <- expression
+     return $ ArrayEntry var index
 aExpr :: Parser Expr
 aExpr =
   do op <- aBinOp
