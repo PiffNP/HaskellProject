@@ -4,15 +4,14 @@ import Data.Data
 import Data.Maybe
 import Control.Monad.State.Lazy
 import qualified Data.Map.Strict as Map
-import qualified Data.Generics.Builders as B
-import Data.Generics.Aliases
 data Variable = Nil
               | IntVar Integer
               | DoubleVar Double
               | BoolVar Bool
               | CharVar Char
               | StringVar String
-              | ArrayVar Integer [Variable]
+              | PairVar Variable Variable
+              | NilListVar
               deriving (Show, Typeable, Data) 
 type SymbolTable = Map.Map String Variable
 
@@ -49,18 +48,32 @@ evalStmt stmt = case stmt of
             case length of
                 (IntVar l) ->
                     do{
-                        put (Map.insert arrayName (ArrayVar l (replicate (fromInteger l) Nil)) symbolTable);
+                        let
+                            f 0 = symbolTable
+                            f x = Map.insert (entryName arrayName (x - 1)) Nil (f (x - 1))
+                        in
+                            put(f l);
                         return ();
                     }
                 otherwise -> error $ "incompatible type for array length: " ++ show (toConstr length)
         }
-{-
-    (ArrayAssign arrayName expr expr) ->
+    (ArrayAssign arrayName expr1 expr2) ->
         do{
             symbolTable <- get;
-            
+            index <- evalExpr expr1;
+            val <- evalExpr expr2;
+            if toConstr(index) /= toConstr (IntVar undefined) then
+                error $ "incompatible type for array index: " ++ show (toConstr index)
+            else
+                let
+                    (IntVar x) = index
+                    name = entryName arrayName x
+                in 
+                    if Map.notMember name symbolTable then
+                        error $ "Variable not found: " ++ show arrayName ++ "[" ++ show index ++ "]"
+                    else
+                        put (Map.insert name val symbolTable);
         }
--}
 
 evalExpr :: Expr -> State SymbolTable Variable
 evalExpr expr = case expr of
@@ -68,13 +81,54 @@ evalExpr expr = case expr of
     (IntLit x) -> return (IntVar x)
     (DoubleLit x) -> return (DoubleVar x)
     (CharLit x) -> return (CharVar x)
-    (StringLit x) -> return (StringVar x)
+    (StringLit x) ->
+        let
+            f [] = NilListVar
+            f (x:xs) = PairVar (CharVar x) (f xs)
+        in
+            return (f x)
+    NilList -> return NilListVar
+    (Pair expr1 expr2) ->
+        do {
+            val1 <- evalExpr expr1;
+            val2 <- evalExpr expr2;
+            return (PairVar val1 val2)
+        }
+    (PairFst expr) ->
+        do {
+            val <- evalExpr expr;
+            case val of
+                (PairVar x _) -> return x
+                otherwise -> return (error $ "incompatible type for car: " ++ show (toConstr val))
+        }
+    (PairSnd expr) ->
+        do {
+            val <- evalExpr expr;
+            case val of
+                (PairVar _ x) -> return x
+                otherwise -> return (error $ "incompatible type for cdr: " ++ show (toConstr val))
+        }
     (Var varName) -> 
         do {
             symbolTable <- get;
             case (fromMaybe Nil (Map.lookup varName symbolTable)) of
                 Nil -> return (error $ unwords ["Variable", show varName, "cannot be found!"])
                 x@_ -> return x
+        }
+    (ArrayEntry arrayName expr) ->
+        do {
+            symbolTable <- get;
+            index <- evalExpr expr;
+            if toConstr(index) /= toConstr (IntVar undefined) then
+                error $ "incompatible type for array index: " ++ show (toConstr index)
+            else
+                let
+                    (IntVar x) = index
+                    name = entryName arrayName x
+                in 
+                    case (fromMaybe Nil (Map.lookup name symbolTable)) of
+                        Nil -> return (error $ "Variable not found: " ++ show arrayName ++ "[" ++ show index ++ "]")
+                        x@_ -> return x
         }
     (ABinary op expr1 expr2) -> 
         do {
@@ -122,6 +176,7 @@ evalAExpr op (DoubleVar val1) (DoubleVar val2) =
         Multiply -> DoubleVar (val1 * val2)
         Divide -> DoubleVar (val1 / val2)
 evalAExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
+
 evalRExpr :: RBinOp -> Variable -> Variable -> Variable
 evalRExpr op (IntVar val1) (IntVar val2) = evalRExpr op (DoubleVar $ fromInteger val1) (DoubleVar $ fromInteger val2)
 evalRExpr op (DoubleVar val1) (IntVar val2) = evalRExpr op (DoubleVar val1) (DoubleVar $ fromInteger val2)
@@ -134,6 +189,10 @@ evalRExpr op (DoubleVar val1) (DoubleVar val2) =
         WhileParser.GT -> BoolVar (val1 > val2)
         WhileParser.LT -> BoolVar (val1 < val2)
 evalRExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
+
+entryName :: String -> Integer -> String
+entryName arrayName index = arrayName ++ "@" ++ show index
+
 
 -- str = "(!set a 1)"
 eval str = (execState (evalStmt $ parseString str)) (Map.empty)

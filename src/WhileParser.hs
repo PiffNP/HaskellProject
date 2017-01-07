@@ -23,12 +23,16 @@ data Expr = BoolLit Bool
           | DoubleLit Double
           | CharLit Char
           | StringLit String
+          | NilList
           | Var String
           | ArrayEntry String Expr
           | ABinary ABinOp Expr Expr
           | Not Expr
           | BBinary BBinOp Expr Expr
           | RBinary RBinOp Expr Expr
+          | Pair Expr Expr
+          | PairFst Expr
+          | PairSnd Expr
             deriving (Show)
 data BBinOp = And | Or deriving (Show)
 data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
@@ -44,7 +48,7 @@ lexer = Token.makeTokenParser emptyDef{
                                   "set!", "skip", "True", "False",
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
-                                  "vector-set!"
+                                  "vector-set!", "nil"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -127,10 +131,14 @@ arrayAssignStmt =
 expression :: Parser Expr
 expression = constExpr
           <|> liftM Var identifier
+          <|> try (parens makePairExpr)
+          <|> try (parens takeFstExpr)
+          <|> try (parens takeSndExpr)         
           <|> try (parens arrayEntryExpr)
           <|> try (parens aExpr)
           <|> try (parens bExpr)
           <|> try (parens rExpr)
+
 constExpr :: Parser Expr
 constExpr = try (liftM DoubleLit float)
          <|> liftM IntLit integer
@@ -138,6 +146,23 @@ constExpr = try (liftM DoubleLit float)
          <|> (reserved "False" >> return (BoolLit False))
          <|> liftM CharLit charLiteral
          <|> liftM StringLit stringLiteral
+         <|> (reserved "nil" >> return NilList)
+makePairExpr :: Parser Expr
+makePairExpr = 
+  do reserved "cons"
+     expr1 <- expression
+     expr2 <- expression
+     return $ Pair expr1 expr2
+takeFstExpr :: Parser Expr
+takeFstExpr =
+  do reserved "car"
+     expr <- expression
+     return $ PairFst expr
+takeSndExpr :: Parser Expr
+takeSndExpr =
+  do reserved "cdr"
+     expr <- expression
+     return $ PairSnd expr
 arrayEntryExpr :: Parser Expr
 arrayEntryExpr =
   do reserved "vector-ref"
