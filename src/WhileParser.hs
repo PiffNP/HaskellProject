@@ -17,6 +17,7 @@ data Stmt = StmtList [Stmt]
           | While Expr Stmt
           | ArrayDef String Expr
           | ArrayAssign String Expr Expr
+          | Return Expr
             deriving (Show)
 data Expr = BoolLit Bool 
           | IntLit Integer
@@ -33,7 +34,11 @@ data Expr = BoolLit Bool
           | Pair Expr Expr
           | PairFst Expr
           | PairSnd Expr
+          | Call String [Expr]
+          | Let String Expr Expr
             deriving (Show)
+data FuncDecl = Function String [String] Stmt deriving (Show)
+data ProgDecl = Program [FuncDecl] deriving (Show)
 data BBinOp = And | Or deriving (Show)
 data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
 data ABinOp = Add | Subtract | Multiply | Divide deriving (Show)
@@ -48,7 +53,8 @@ lexer = Token.makeTokenParser emptyDef{
                                   "set!", "skip", "True", "False",
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
-                                  "vector-set!", "nil"
+                                  "vector-set!", "nil", "return", "function",
+                                  "let", "define"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -89,6 +95,7 @@ statement =  try (parens stmtList)
          <|> try (parens whileStmt)
          <|> try (parens arrayDefStmt)
          <|> try (parens arrayAssignStmt)
+         <|> try (parens returnStmt)
 stmtList :: Parser Stmt
 stmtList = 
   do reserved "begin"
@@ -128,6 +135,14 @@ arrayAssignStmt =
      indexExpr <- expression
      valExpr <- expression
      return $ ArrayAssign var indexExpr valExpr
+returnStmt :: Parser Stmt
+returnStmt =
+  do reserved "return"
+     expr <- expression
+     return $ Return expr
+
+
+
 expression :: Parser Expr
 expression = constExpr
           <|> liftM Var identifier
@@ -138,6 +153,8 @@ expression = constExpr
           <|> try (parens aExpr)
           <|> try (parens bExpr)
           <|> try (parens rExpr)
+          <|> try (parens letExpr)
+          <|> try (parens callExpr)
 
 constExpr :: Parser Expr
 constExpr = try (liftM DoubleLit float)
@@ -201,11 +218,47 @@ rBinOp = (reservedOp "<" >> return WhileParser.LT)
       <|> (reservedOp "=" >> return WhileParser.EQ)
       <|> (reservedOp ">=" >> return WhileParser.GE)
       <|> (reservedOp ">" >> return WhileParser.GT)
+
+callExpr :: Parser Expr
+callExpr =
+  do funcName <- identifier
+     params <- many expression
+     return $ Call funcName params
+
+letExpr :: Parser Expr
+letExpr =
+  do reserved "let"
+     varName <- identifier
+     varBind <- expression
+     bindExpr <- expression
+     return $ Let varName varBind bindExpr
+
+functionDecl :: Parser FuncDecl
+functionDecl = do reserved "define"
+                  cls <- parens $ many identifier
+                  stmts <- statement
+                  return $ Function (head cls) (tail cls) stmts
+
+programDecl :: Parser ProgDecl
+programDecl = do whiteSpace
+                 funcs <- many (parens functionDecl)
+                 return $ Program funcs
+
 parseString :: String -> Stmt
 parseString str =
     case parse whileParser "" str of
         Left e  -> error $ show e
         Right r -> r
+
+parseProgramStr :: String -> ProgDecl
+parseProgramStr str =
+    case parse programDecl "" str of
+        Left e -> error $ show e
+        Right r -> r
+
+
+test1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
+
 
 testParser :: Parsec String Int RBinOp
 testParser = whiteSpace >> testOp
