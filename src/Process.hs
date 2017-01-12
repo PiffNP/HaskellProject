@@ -35,6 +35,8 @@ symArrUpdate (t, s, fl) name idx expr = (nt, s, fl) where
                 else error $ "Illegal subscription " ++ show idx ++ " in " ++ show name ++ "[" ++ show len ++ "]"
             otherwise -> error $ "Variable is not an array: " ++ show name
 
+-- We always look up the stack first from first elements.
+-- This corresponds to the case that inner Let clauses shadows outer ones which shadows variables defined in the function.
 stackLookup :: SymbolStack -> String -> Maybe Variable
 stackLookup [] _ = Nothing
 stackLookup (x:xs) cur = let name = fst x; var = snd x in if name == cur then (Just var) else stackLookup xs cur
@@ -308,6 +310,8 @@ runStmt str = execState (evalStmt $ parseString str) (Map.empty, [], Map.empty)
 -- str = "(!set a 1)"
 -- eval str = (execState (evalStmt $ parseString str)) (Map.empty)
 
+-- Some cases for testing new implementation of array, the let clause, first order functions
+
 test_ret = "(define (main) (begin (return 10)))" -- Outputs 10
 test_call = "(define (test x y z) (begin (return (let q (+ x y) (+ z q))) )) (define (main) (return (test 5 10 15) ) )" -- Outputs 30
 test_earlyhalt = "(define (main) (begin (set! x 10) (while (> x 0) (begin (set! x (- x 1)) (return x) ) ) ) )" -- Outputs 9 instead of 0
@@ -315,3 +319,7 @@ test_assign = "(define (main) (begin (make-vector a 10) (vector-set! a 5 10) (re
 test_miss = "(define (main) (begin (make-vector a 10) (vector-set! a 5 10) (return (vector-ref a 6))) )" -- Reports no initialization
 test_bound = "(define (main) (begin (make-vector a 10) (vector-set! a 10 10)) )" -- Reports out of bound
 test_missret = "(define (main) (set! x 10) )" -- Reports no return value
+test_shadowing = "(define (main) (begin (set! x 10) (set! y (let x 15 x)) (return y)))" -- Outputs 15
+test_recursive = "(define (add x) (if (= x 0) (return 100) (return (+ x (add (- x 1)))))) (define (main) (return (add 100)))" -- Outputs 5150
+test_subarray = "(define (main) (begin (make-vector a 4) (make-vector b 4) (vector-set! a 0 b) (vector-set! b 0 1) (set! c (vector-ref a 0))" ++
+                "(return (vector-ref c 0)) ))" -- Reports uninitialized value, which is actually the correct behaviour.
