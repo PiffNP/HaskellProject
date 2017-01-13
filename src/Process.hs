@@ -13,24 +13,24 @@ data Variable = Nil
               | StringVar String
               | PairVar Variable Variable
               | NilListVar
+              | DummyVar
               | ArrayVar (Int, Map.Map Int Variable)
-              deriving (Show, Typeable, Data) 
+              | Partial [String] [Variable] Stmt
+              deriving (Show, Typeable, Data)
 type SymbolTable = Map.Map String Variable
-type SymbolStack = [(String, Variable)]
-type FuncList = Map.Map String FuncDecl
-type SymState = (SymbolTable, SymbolStack, FuncList)
+type SymState = [SymbolTable]
 
 nullSymState :: SymState
-nullSymState = (Map.empty, [], Map.empty)
+nullSymState = [Map.empty]
 
--- Functions to wrap the original symbol table, the new Array implementation and the list of functions for call.
--- Note: By convention the latest Let clause are the first in the stack
--- Note that in assignments, we don't need to consider the stack(for let clauses)
+-- This is to wrap the dynamic scoping model
+-- For this model, changes are local. It's easy to make global changes happen though(only this function requires change).
+
 symUpdate :: SymState -> String -> Variable -> SymState
-symUpdate (t, s, fl) name expr = ((Map.insert name expr t), s, fl)
+symUpdate (t:ts) name expr = (Map.insert name expr t):ts
 
 symArrUpdate :: SymState -> String -> Int -> Variable -> SymState
-symArrUpdate (t, s, fl) name idx expr = (nt, s, fl) where
+symArrUpdate (t:ts) name idx expr = (nt:ts) where
        nt = case (Map.lookup name t) of
             Nothing -> error $ "Variable not found: " ++ show name
             Just (ArrayVar (len, content)) ->
@@ -39,19 +39,15 @@ symArrUpdate (t, s, fl) name idx expr = (nt, s, fl) where
                 else error $ "Illegal subscription " ++ show idx ++ " in " ++ show name ++ "[" ++ show len ++ "]"
             otherwise -> error $ "Variable is not an array: " ++ show name
 
--- We always look up the stack first from first elements.
--- This corresponds to the case that inner Let clauses shadows outer ones which shadows variables defined in the function.
-stackLookup :: SymbolStack -> String -> Maybe Variable
-stackLookup [] _ = Nothing
-stackLookup (x:xs) cur = let name = fst x; var = snd x in if name == cur then (Just var) else stackLookup xs cur
 
 symLookup :: SymState -> String -> Maybe Variable
-symLookup (t, s, _) name = case stackLookup s name of
-                        Nothing -> Map.lookup name t
+symLookup [] _ = Nothing
+symLookup (s:ss) name = case Map.lookup name s of
+                        Nothing -> symLookup ss name
                         Just v -> Just v
 
 symArrLookup :: SymState -> String -> Int -> Maybe Variable
-symArrLookup state@(t, s, _) name idx = case symLookup state name of
+symArrLookup state name idx = case symLookup state name of
                                Nothing -> error $ "Variable not found: " ++ show name
                                Just (ArrayVar (len, content)) -> if ((idx >= 0) && (idx < len)) then (Map.lookup idx content)
                                                                 else error $ "Illegal subscription " ++ show idx ++ " in " ++ show name ++ "[" ++ show len ++ "]"
@@ -60,29 +56,26 @@ symArrLookup state@(t, s, _) name idx = case symLookup state name of
 -- Functionality for function calls.
 -- Since "return" itself is a reserved key, we use it to store the actual return value of the function
 
--- Find the function.
-findFunc :: SymState -> String -> Maybe FuncDecl
-findFunc (_, _, fl) fname = Map.lookup fname fl
-
 -- Before a function call, return the symbol table containing its parameters. The old state is a parameter to fetch function list.
-buildCall :: SymState -> [String] -> [Variable] -> SymState
-buildCall (_, _, fl) names vars = (nt, [], fl) where nt = if (length names) == (length vars) then Map.fromList (zip names vars)
+enterBlock :: SymState -> [String] -> [Variable] -> SymState
+enterBlock state names vars = (nt:state) where nt = if (length names) == (length vars) then Map.fromList (zip names vars)
                                                           else error $ "Parameter length mismatch: " ++ show (length names) ++ " parameters and provided " ++ show (length vars)
 
--- Is a return value assigned?
+leaveBlock :: SymState -> SymState
+leaveBlock (s:ss) = ss
+
+-- Is a return value assigned at the top level?
 isRet :: SymState -> Bool
-isRet (t, _, _) = Map.member "return" t
-
--- Functionality for let.. calls.
-
-bindVar :: SymState -> String -> Variable -> SymState
-bindVar (t, s, fl) name val = (t, (name, val):s, fl)
-
-unbindVar :: SymState -> SymState
-unbindVar (t, [], fl) = error $ "Internal Error - Empty Stack in Let clause"
-unbindVar (t, (_:xs), fl) = (t, xs, fl)
+isRet (t:ts) = Map.member "return" t
 
 
+-- Helper function to bind additional parameters
+bindVar :: Variable -> [Variable] -> Variable
+bindVar f params = case f of
+    (Partial vars oldparam stmt) -> if (length vars < (length oldparam + length params)) then
+                                        error $ show(f) ++ " receives too many parameters: " ++ show(params)
+                                    else (Partial vars (oldparam ++ params) stmt)
+    otherwise -> error $ "Internal Error - " ++ show(f) ++ " is NOT a partial."
 
 evalStmt :: Stmt -> State SymState ()
 evalStmt stmt = case stmt of
@@ -222,25 +215,22 @@ evalExpr expr = case expr of
             val2 <- evalExpr expr2;
             return (evalRExpr op val1 val2);
         }
-    (Call funcname params) ->
+    (Call func params) ->
         do {
             sym <- get;
-            case findFunc sym funcname of
-            Just f -> do {
-                vals <- evalExprList params;
-                ret <- evalFunc f vals;
-                return ret
-            }
-            Nothing -> return (error $ "Function name not found: " ++ show(funcname))
+            f <- evalExpr func;
+            p <- evalExprList params;
+            evalPartial (bindVar f p)
         }
+    (Function vars stmt) -> return (Partial vars [] stmt)
     (Let varName varExpr expr) ->
         do {
             sym <- get;
             value <- evalExpr varExpr;
-            put (bindVar sym varName value);
+            put (enterBlock sym [varName] [value]);
             ret <- evalExpr expr;
             sym <- get;
-            put (unbindVar sym);
+            put (leaveBlock sym);
             return ret
         }
 
@@ -282,28 +272,27 @@ evalRExpr op (DoubleVar val1) (DoubleVar val2) =
         WhileParser.LT -> BoolVar (val1 < val2)
 evalRExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
 
-evalFunc :: FuncDecl -> [Variable] -> State SymState Variable
-evalFunc f params = case f of
-                Function fn args body -> do{
-                    old_sym <- get;
-                    put (buildCall old_sym args params);
-                    evalStmt body;
-                    new_sym <- get;
-                    put old_sym;
-                    case symLookup new_sym "return" of
-                        (Just x) -> return x
-                        Nothing -> return (error $ "No return statement executing " ++ show(fn) ++ show(args))
-                }
 
-getFuncName :: FuncDecl -> String
-getFuncName (Function fn _ _) = fn
+evalPartial :: Variable -> State SymState Variable
+evalPartial f = case f of
+                (Partial var param stmt) ->
+                    if (length var == length param) || (head var == "") then
+                        do{
+                            old_sym <- get;
+                            if (length var == length param) then put (enterBlock old_sym var param)
+                                                            else put (enterBlock old_sym [] []);
+                            evalStmt stmt;
+                            new_sym <- get;
+                            put (leaveBlock new_sym);
+                            if isRet new_sym then return $ fromJust $ symLookup new_sym "return"
+                                             else return (error $ "No return statement executing " ++ show(f))
+                        }
+                    else return f
+                otherwise -> error $ "Internal Error - " ++ show(f) ++ " is not a partial."
 
 evalProg :: ProgDecl -> Variable
-evalProg p = case p of
-                Program fs -> evalState (evalFunc fmain []) nullSymState
-                        where funcmap = Map.fromList [(getFuncName f, f) | f <- fs]
-                              fmain = if Map.notMember "main" funcmap then (error "No main function found")
-                                                                      else fromJust (Map.lookup "main" funcmap)
+evalProg (Program stmt) = evalState (evalExpr (Call (Var "main") [])) state
+                                where state = execState (evalStmt stmt) nullSymState
 
 runProg :: String -> Variable
 runProg str = evalProg $ parseProgramStr str
@@ -311,8 +300,6 @@ runProg str = evalProg $ parseProgramStr str
 runStmt :: String -> SymState
 runStmt str = execState (evalStmt $ parseString str) nullSymState
 
--- str = "(!set a 1)"
--- eval str = (execState (evalStmt $ parseString str)) (Map.empty)
 
 -- Some cases for testing new implementation of array, the let clause, first order functions
 
@@ -327,3 +314,14 @@ test_shadowing = "(define (main) (begin (set! x 10) (set! y (let x 15 x)) (retur
 test_recursive = "(define (add x) (if (= x 0) (return 100) (return (+ x (add (- x 1)))))) (define (main) (return (add 100)))" -- Outputs 5150
 test_subarray = "(define (main) (begin (make-vector a 4) (make-vector b 4) (vector-set! a 0 b) (vector-set! b 0 1) (set! c (vector-ref a 0))" ++
                 "(return (vector-ref c 0)) ))" -- Reports uninitialized value, which is actually the correct behaviour.
+
+-- Cases for anonymous function, and passing anonymous functions as parameters
+test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10))))"
+test_multi_lambda = "(set! x (lambda2 (q w e) (+ q (+ w e)))) (define (main) (return (x 42 53 53)))"
+test_passing_partial = "(set! x (lambda2 (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15)))))"
+
+
+-- Cases for dynamic scoping and zero parameter functions
+test_scoping_1 = "(define (f1) (begin (set! a 10) (return (f2)))) (define (f2) (return a)) (set! main f1)"
+test_scoping_2 = "(define (f1 x) (begin (set! a x) (return 0))) (set! tmp (lambda x (f1 x))) (define (main) (return (+ (tmp 5) a)))"
+test_scoping_3 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5) "

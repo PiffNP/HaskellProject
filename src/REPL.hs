@@ -10,10 +10,8 @@ import Control.Monad
 import System.IO
 
 showSymState :: SymState -> String
-showSymState (s, _, fl) = "Active variables: " ++ (show s) ++ "Functions: " ++ (show (Map.keys fl))
+showSymState = show
 
-addFunc :: SymState -> FuncDecl -> SymState
-addFunc (s, t, fl) f = (s, t, (Map.insert (getFuncName f) f fl))
 
 type IOState = (SymState, Int, Stmt)
 
@@ -22,17 +20,6 @@ runCycle (state, lineno, laststmt) = do
                                         str <- getLine
                                         let command = (drop 3 str)
                                         case (take 2 str) of
-                                            ":f" -> case parse functionDecl "" command of
-                                                        Left e -> do {
-                                                            putStrLn $  "Parsing Error: " ++ show(e);
-                                                            putStr $ ((show lineno) ++ "> ");
-                                                            runCycle (state, lineno + 1, laststmt)
-                                                        }
-                                                        Right r -> do {
-                                                            putStrLn $  "Function will be added to current state";
-                                                            putStr $ ((show lineno) ++ "> ");
-                                                            runCycle (addFunc state r, lineno + 1, laststmt)
-                                                        }
                                             ":i" -> case parse whileParser "" command of
                                                     Left e -> do {
                                                             putStrLn $  "Parsing Error: " ++ show(e);
@@ -73,7 +60,7 @@ runCycle (state, lineno, laststmt) = do
 
 repl :: IO ()
 repl = do
-            putStrLn $  "You are now at REPL Mode. :f to define function, :i to execute code, :p to print variable to screen" ++
+            putStrLn $  "You are now at REPL Mode. :i to execute code, :p to print variable to screen " ++
                      ":q to quit, :t to print AST of last :i action."
             putStr "> "
             runCycle (nullSymState, 1, Skip)

@@ -18,7 +18,7 @@ data Stmt = StmtList [Stmt]
           | ArrayDef String Expr
           | ArrayAssign String Expr Expr
           | Return Expr
-            deriving (Show)
+            deriving (Show, Data, Typeable)
 data Expr = BoolLit Bool 
           | IntLit Integer
           | DoubleLit Double
@@ -37,12 +37,11 @@ data Expr = BoolLit Bool
           | Call Expr [Expr]
           | Function [String] Stmt
           | Let String Expr Expr
-          | DummyExpr
-            deriving (Show)
+            deriving (Show, Data, Typeable)
 data ProgDecl = Program Stmt deriving (Show)
-data BBinOp = And | Or deriving (Show)
-data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
-data ABinOp = Add | Subtract | Multiply | Divide deriving (Show)
+data BBinOp = And | Or deriving (Show, Data, Typeable)
+data RBinOp = EQ | GE | LE | GT | LT deriving (Show, Data, Typeable)
+data ABinOp = Add | Subtract | Multiply | Divide deriving (Show, Data, Typeable)
 
 lexer = Token.makeTokenParser emptyDef{ 
         Token.commentStart    = "/*",
@@ -226,12 +225,6 @@ rBinOp = (reservedOp "<" >> return WhileParser.LT)
       <|> (reservedOp "=" >> return WhileParser.EQ)
       <|> (reservedOp ">=" >> return WhileParser.GE)
       <|> (reservedOp ">" >> return WhileParser.GT)
-
-fcallExpr :: Parser Expr
-fcallExpr =
-  do v <- identifier
-     params <- many expression
-     return $ Call (Var v) params
 
 callExpr :: Parser Expr
 callExpr =
