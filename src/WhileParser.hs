@@ -34,11 +34,12 @@ data Expr = BoolLit Bool
           | Pair Expr Expr
           | PairFst Expr
           | PairSnd Expr
-          | Call String [Expr]
+          | Call Expr [Expr]
+          | Function [String] Stmt
           | Let String Expr Expr
+          | DummyExpr
             deriving (Show)
-data FuncDecl = Function String [String] Stmt deriving (Show)
-data ProgDecl = Program [FuncDecl] deriving (Show)
+data ProgDecl = Program Stmt deriving (Show)
 data BBinOp = And | Or deriving (Show)
 data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
 data ABinOp = Add | Subtract | Multiply | Divide deriving (Show)
@@ -54,7 +55,7 @@ lexer = Token.makeTokenParser emptyDef{
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
                                   "vector-set!", "nil", "return", "function",
-                                  "let", "define"
+                                  "let", "define", "lambda"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -96,6 +97,7 @@ statement =  try (parens stmtList)
          <|> try (parens arrayDefStmt)
          <|> try (parens arrayAssignStmt)
          <|> try (parens returnStmt)
+         <|> try (parens funcDeclStmt)
 stmtList :: Parser Stmt
 stmtList = 
   do reserved "begin"
@@ -140,8 +142,13 @@ returnStmt =
   do reserved "return"
      expr <- expression
      return $ Return expr
-
-
+funcDeclStmt :: Parser Stmt
+funcDeclStmt = do reserved "define";
+                   cls <- parens $ many identifier;
+                   stmts <- statement;
+                   -- The Dummy Variable Hack
+                   if (length cls) > 1 then return $ Assign (head cls) (Function (tail cls) stmts)
+                                       else return $ Assign (head cls) (Function [""] stmts)
 
 expression :: Parser Expr
 expression = constExpr
@@ -155,6 +162,7 @@ expression = constExpr
           <|> try (parens rExpr)
           <|> try (parens letExpr)
           <|> try (parens callExpr)
+          <|> try (parens lambdaExpr)
 
 constExpr :: Parser Expr
 constExpr = try (liftM DoubleLit float)
@@ -221,9 +229,18 @@ rBinOp = (reservedOp "<" >> return WhileParser.LT)
 
 callExpr :: Parser Expr
 callExpr =
-  do funcName <- identifier
+  do func <- expression
      params <- many expression
-     return $ Call funcName params
+     return $ Call func params
+
+lambdaExpr :: Parser Expr
+lambdaExpr = do
+                reserved "lambda";
+                do {var <- identifier; expr <- expression; return $ Function [var] $ Return expr}
+                <|> do {vlist <- parens (many identifier); expr <- expression; return $ Function vlist $ Return expr}
+
+
+
 
 letExpr :: Parser Expr
 letExpr =
@@ -233,16 +250,10 @@ letExpr =
      bindExpr <- expression
      return $ Let varName varBind bindExpr
 
-functionDecl :: Parser FuncDecl
-functionDecl = do reserved "define"
-                  cls <- parens $ many identifier
-                  stmts <- statement
-                  return $ Function (head cls) (tail cls) stmts
-
 programDecl :: Parser ProgDecl
 programDecl = do whiteSpace
-                 funcs <- many (parens functionDecl)
-                 return $ Program funcs
+                 stmts <- many statement
+                 return $ Program $ StmtList stmts
 
 parseString :: String -> Stmt
 parseString str =
@@ -258,8 +269,8 @@ parseProgramStr str =
 
 
 test1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
-
-
+test2 = "(set! a 0) (set! y (lambda (p q r s) (* q r)))  (set! x (lambda p (+ p 5))) (set! z (x y y))"
+expr1 = "(lambda (p q r s) (* q r))"
 testParser :: Parsec String Int RBinOp
 testParser = whiteSpace >> testOp
 test :: String -> RBinOp
