@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+module Process where
 import WhileParser
 import Data.Data
 import Data.Maybe
@@ -18,6 +19,9 @@ type SymbolTable = Map.Map String Variable
 type SymbolStack = [(String, Variable)]
 type FuncList = Map.Map String FuncDecl
 type SymState = (SymbolTable, SymbolStack, FuncList)
+
+nullSymState :: SymState
+nullSymState = (Map.empty, [], Map.empty)
 
 -- Functions to wrap the original symbol table, the new Array implementation and the list of functions for call.
 -- Note: By convention the latest Let clause are the first in the stack
@@ -296,7 +300,7 @@ getFuncName (Function fn _ _) = fn
 
 evalProg :: ProgDecl -> Variable
 evalProg p = case p of
-                Program fs -> evalState (evalFunc fmain []) (Map.empty, [], funcmap)
+                Program fs -> evalState (evalFunc fmain []) nullSymState
                         where funcmap = Map.fromList [(getFuncName f, f) | f <- fs]
                               fmain = if Map.notMember "main" funcmap then (error "No main function found")
                                                                       else fromJust (Map.lookup "main" funcmap)
@@ -305,7 +309,7 @@ runProg :: String -> Variable
 runProg str = evalProg $ parseProgramStr str
 
 runStmt :: String -> SymState
-runStmt str = execState (evalStmt $ parseString str) (Map.empty, [], Map.empty)
+runStmt str = execState (evalStmt $ parseString str) nullSymState
 
 -- str = "(!set a 1)"
 -- eval str = (execState (evalStmt $ parseString str)) (Map.empty)
