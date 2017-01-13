@@ -55,7 +55,7 @@ lexer = Token.makeTokenParser emptyDef{
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
                                   "vector-set!", "nil", "return", "function",
-                                  "let", "define", "lambda"
+                                  "let", "define", "lambda", "lambda2"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -227,6 +227,12 @@ rBinOp = (reservedOp "<" >> return WhileParser.LT)
       <|> (reservedOp ">=" >> return WhileParser.GE)
       <|> (reservedOp ">" >> return WhileParser.GT)
 
+fcallExpr :: Parser Expr
+fcallExpr =
+  do v <- identifier
+     params <- many expression
+     return $ Call (Var v) params
+
 callExpr :: Parser Expr
 callExpr =
   do func <- expression
@@ -234,13 +240,8 @@ callExpr =
      return $ Call func params
 
 lambdaExpr :: Parser Expr
-lambdaExpr = do
-                reserved "lambda";
-                do {var <- identifier; expr <- expression; return $ Function [var] $ Return expr}
-                <|> do {vlist <- parens (many identifier); expr <- expression; return $ Function vlist $ Return expr}
-
-
-
+lambdaExpr =    do {reserved "lambda"; var <- identifier; expr <- expression; return $ Function [var] $ Return expr}
+                <|> do {reserved "lambda2"; vlist <- parens (many identifier); expr <- expression; return $ Function vlist $ Return expr}
 
 letExpr :: Parser Expr
 letExpr =
