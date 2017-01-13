@@ -23,22 +23,34 @@ runCycle (state, lineno, laststmt) = do
                                         let command = (drop 3 str)
                                         case (take 2 str) of
                                             ":f" -> case parse functionDecl "" command of
-                                                        Left e -> putStrLn $  "Parsing Error: " ++ show(e)
+                                                        Left e -> do {
+                                                            putStrLn $  "Parsing Error: " ++ show(e);
+                                                            putStr $ ((show lineno) ++ "> ");
+                                                            runCycle (state, lineno + 1, laststmt)
+                                                        }
                                                         Right r -> do {
                                                             putStrLn $  "Function will be added to current state";
                                                             putStr $ ((show lineno) ++ "> ");
                                                             runCycle (addFunc state r, lineno + 1, laststmt)
                                                         }
                                             ":i" -> case parse whileParser "" command of
-                                                        Left e -> putStrLn $  "Parsing Error: " ++ show(e)
-                                                        Right r -> let newstate = execState (evalStmt r) state in
+                                                    Left e -> do {
+                                                            putStrLn $  "Parsing Error: " ++ show(e);
+                                                            putStr $ ((show lineno) ++ "> ");
+                                                            runCycle (state, lineno + 1, laststmt)
+                                                        }
+                                                    Right r -> let newstate = execState (evalStmt r) state in
                                                                             do {
                                                                                 putStrLn (showSymState newstate);
                                                                                 putStr $ ((show lineno) ++ "> ");
                                                                                 runCycle (newstate, lineno + 1, r)
                                                                             }
                                             ":p" -> case parse expression "" command of
-                                                        Left e -> putStrLn $  "Parsing Error: " ++ show(e)
+                                                        Left e -> do {
+                                                            putStrLn $  "Parsing Error: " ++ show(e);
+                                                            putStr $ ((show lineno) ++ "> ");
+                                                            runCycle (state, lineno + 1, laststmt)
+                                                        }
                                                         Right r -> let result = evalState (evalExpr r) state in
                                                                         do {
                                                                             putStrLn $ "Evaluation: " ++ (show result);
@@ -51,12 +63,12 @@ runCycle (state, lineno, laststmt) = do
                                                             runCycle (state, lineno + 1, laststmt)
                                                         }
                                             ":q" -> return ()
-                                            otherwise -> putStrLn $ "Unknown prefix - [" ++ (take 3 str) ++ "]"
-                                        if ((take 2 str) == ":q") then return () else
-                                                                                        do {
-                                                                                            putStr $ ((show lineno) ++ "> ");
-                                                                                            runCycle (state, lineno + 1, laststmt)
-                                                                                        }
+                                            otherwise -> do {
+                                                            putStrLn $ "Unknown prefix - [" ++ (take 3 str) ++ "]";
+                                                            putStr $ ((show lineno) ++ "> ");
+                                                            runCycle (state, lineno + 1, laststmt)
+                                                        }
+
 
 
 repl :: IO ()
