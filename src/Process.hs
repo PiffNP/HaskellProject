@@ -72,7 +72,7 @@ isRet (t:ts) = Map.member "return" t
 -- Helper function to bind additional parameters
 bindVar :: Variable -> [Variable] -> Variable
 bindVar f params = case f of
-    (Partial vars oldparam stmt) -> if (length vars < (length oldparam + length params)) then
+    (Partial vars oldparam stmt) -> if (length vars < (length oldparam + length params)) || ((vars == [""]) && (length params > 0)) then
                                         error $ show(f) ++ " receives too many parameters: " ++ show(params)
                                     else (Partial vars (oldparam ++ params) stmt)
     otherwise -> error $ show(f) ++ " is NOT a partial to bind parameters: " ++ show(params)
@@ -323,3 +323,7 @@ test_passing_partial = "(set! x (lambda (q w e) (+ q (+ w e)))) (set! y (lambda 
 test_scoping_1 = "(define (f1) (begin (set! a 10) (return (f2)))) (define (f2) (return a)) (set! main f1)"
 test_scoping_2 = "(define (f1 x) (begin (set! a x) (return 0))) (set! tmp (lambda x (f1 x))) (define (main) (return (+ (tmp 5) a)))"
 test_scoping_3 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5) "
+
+-- This should report error
+
+test_zero_params = "(define (f1) (return 0)) (define (main) (return (f1 0)))"
