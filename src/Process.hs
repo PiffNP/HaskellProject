@@ -300,7 +300,7 @@ getFuncName (Function fn _ _) = fn
 
 evalProg :: ProgDecl -> Variable
 evalProg p = case p of
-                Program fs -> evalState (evalFunc fmain []) nullSymState
+                Program fs -> evalState (evalFunc fmain []) (Map.empty, [], funcmap)
                         where funcmap = Map.fromList [(getFuncName f, f) | f <- fs]
                               fmain = if Map.notMember "main" funcmap then (error "No main function found")
                                                                       else fromJust (Map.lookup "main" funcmap)
