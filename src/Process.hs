@@ -14,7 +14,7 @@ data Variable = Nil
               | PairVar Variable Variable
               | NilListVar
               | DummyVar
-              | ArrayVar (Int, Map.Map Int Variable)
+              | ArrayVar (Integer, Map.Map Integer Variable)
               | Partial [String] [Variable] Stmt
               deriving (Show, Typeable, Data)
 type SymbolTable = Map.Map String Variable
@@ -29,7 +29,7 @@ nullSymState = [Map.empty]
 symUpdate :: SymState -> String -> Variable -> SymState
 symUpdate (t:ts) name expr = (Map.insert name expr t):ts
 
-symArrUpdate :: SymState -> String -> Int -> Variable -> SymState
+symArrUpdate :: SymState -> String -> Integer -> Variable -> SymState
 symArrUpdate (t:ts) name idx expr = (nt:ts) where
        nt = case (Map.lookup name t) of
             Nothing -> error $ "Variable not found: " ++ show name
@@ -46,7 +46,7 @@ symLookup (s:ss) name = case Map.lookup name s of
                         Nothing -> symLookup ss name
                         Just v -> Just v
 
-symArrLookup :: SymState -> String -> Int -> Maybe Variable
+symArrLookup :: SymState -> String -> Integer -> Maybe Variable
 symArrLookup state name idx = case symLookup state name of
                                Nothing -> error $ "Variable not found: " ++ show name
                                Just (ArrayVar (len, content)) -> if ((idx >= 0) && (idx < len)) then (Map.lookup idx content)
@@ -75,7 +75,7 @@ bindVar f params = case f of
     (Partial vars oldparam stmt) -> if (length vars < (length oldparam + length params)) then
                                         error $ show(f) ++ " receives too many parameters: " ++ show(params)
                                     else (Partial vars (oldparam ++ params) stmt)
-    otherwise -> error $ "Internal Error - " ++ show(f) ++ " is NOT a partial."
+    otherwise -> error $ show(f) ++ " is NOT a partial to bind parameters: " ++ show(params)
 
 evalStmt :: Stmt -> State SymState ()
 evalStmt stmt = case stmt of
@@ -116,7 +116,7 @@ evalStmt stmt = case stmt of
             symbolTable <- get;
             length <- evalExpr expr;
             case length of
-                (IntVar l) -> put (symUpdate symbolTable arrayName (ArrayVar (fromIntegral l, Map.fromList [])));
+                (IntVar l) -> put (symUpdate symbolTable arrayName (ArrayVar (l, Map.fromList [])));
                 otherwise -> error $ "incompatible type for array length: " ++ show (toConstr length)
         }
     (ArrayAssign arrayName expr1 expr2) ->
@@ -125,7 +125,7 @@ evalStmt stmt = case stmt of
             index <- evalExpr expr1;
             val <- evalExpr expr2;
             case index of
-                (IntVar l) -> put (symArrUpdate symbolTable arrayName (fromIntegral l) val);
+                (IntVar l) -> put (symArrUpdate symbolTable arrayName l val);
                 otherwise -> error $ "incompatible type for array index: " ++ show (toConstr index)
         }
     (Return expr) ->
@@ -180,10 +180,9 @@ evalExpr expr = case expr of
             symbolTable <- get;
             index <- evalExpr expr;
             case index of
-                (IntVar xlong) -> let x = fromIntegral xlong in
-                                    case symArrLookup symbolTable arrayName x of
-                                    Just x -> return x
-                                    Nothing -> return (error $ "Array entry is not initialized: " ++ show(arrayName) ++ "@" ++ show(x))
+                (IntVar x) -> case symArrLookup symbolTable arrayName x of
+                                Just x -> return x
+                                Nothing -> return (error $ "Array entry is not initialized: " ++ show(arrayName) ++ "@" ++ show(x))
                 otherwise -> return (error $ "Incompatible type for subscription: " ++ show (toConstr index))
         }
     (ABinary op expr1 expr2) -> 
@@ -302,7 +301,6 @@ runStmt str = execState (evalStmt $ parseString str) nullSymState
 
 
 -- Some cases for testing new implementation of array, the let clause, first order functions
-
 test_ret = "(define (main) (begin (return 10)))" -- Outputs 10
 test_call = "(define (test x y z) (begin (return (let q (+ x y) (+ z q))) )) (define (main) (return (test 5 10 15) ) )" -- Outputs 30
 test_earlyhalt = "(define (main) (begin (set! x 10) (while (> x 0) (begin (set! x (- x 1)) (return x) ) ) ) )" -- Outputs 9 instead of 0
