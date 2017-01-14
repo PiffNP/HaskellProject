@@ -18,6 +18,7 @@ data Stmt = StmtList [Stmt]
           | ArrayDef String Expr
           | ArrayAssign String Expr Expr
           | Return Expr
+            deriving (Data, Typeable)
 data Expr = BoolLit Bool 
           | IntLit Integer
           | DoubleLit Double
@@ -33,14 +34,14 @@ data Expr = BoolLit Bool
           | Pair Expr Expr
           | PairFst Expr
           | PairSnd Expr
-          | Call String [Expr]
+          | Call Expr [Expr]
+          | Function [String] Stmt
           | Let String Expr Expr
-            deriving (Show)
-data FuncDecl = Function String [String] Stmt
-data ProgDecl = Program [FuncDecl]
-data BBinOp = And | Or deriving (Show)
-data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
-data ABinOp = Add | Subtract | Multiply | Divide deriving (Show)
+            deriving (Show, Data, Typeable)
+data ProgDecl = Program Stmt
+data BBinOp = And | Or deriving (Show, Data, Typeable)
+data RBinOp = EQ | GE | LE | GT | LT deriving (Show, Data, Typeable)
+data ABinOp = Add | Subtract | Multiply | Divide deriving (Show, Data, Typeable)
 
 -- pretty-printer
 showStmtList :: Int -> [Stmt] -> String
@@ -49,25 +50,27 @@ showStmtList t (x:xs) = (showStmt t x) ++ (showStmtList t xs)
 showStmt :: Int -> Stmt -> String
 showStmt t stmt = [' ' | x <- [1..t]] ++ case stmt of
     (StmtList (x:xs)) -> "StatementList [\n" ++ showStmtList (t+2) (x:xs) ++ [' ' | x <- [1..t]] ++ "]\n"
-    (Assign str expr) -> "Assign " ++ show str ++ " " ++ show expr ++ "\n"
+    (Assign str expr) -> case expr of
+        (Function s stmt) -> "Assign " ++ show str ++ " Function " ++ show s ++  " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
+        _ -> "Assign " ++ show str ++ " " ++ show expr ++ [' ' | x <- [1..t]] ++ "\n"
     (Skip) -> "Skip\n"
     (If expr a b) -> "If " ++ show expr ++ ":\n" ++ showStmt (t+2) a ++ [' ' | x <- [1..t]] ++ "Else:\n" ++ showStmt (t+2) b
     (While expr a) -> "While " ++ show expr ++ ":\n" ++ showStmt (t+2) a
     (ArrayDef str expr) -> "ArrayDef " ++ show str ++ " " ++ show expr ++ "\n"
     (ArrayAssign str expr1 expr2) -> "ArrayAssign " ++ show str ++ " " ++ show expr1 ++ " " ++ show expr2 ++ "\n"
     (Return expr) -> "Return " ++ show expr ++ "\n"
-showFuncList :: Int -> [FuncDecl] -> String
-showFuncList _ [] = ""
-showFuncList t (x:xs) = showFunc t x ++ showFuncList t xs
-showFunc :: Int -> FuncDecl -> String
-showFunc t (Function func para stmt) = [' ' | x <- [1..t]] ++ "Function " ++ show func ++ " " ++ show para 
-                                       ++ " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
+--showFuncList :: Int -> [FuncDecl] -> String
+--showFuncList _ [] = ""
+--showFuncList t (x:xs) = showFunc t x ++ showFuncList t xs
+--showFunc :: Int -> FuncDecl -> String
+--showFunc t (Function func para stmt) = [' ' | x <- [1..t]] ++ "Function " ++ show func ++ " " ++ show para 
+                                       -- ++ " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
 instance Show Stmt where
     show a = showStmt 0 a
-instance Show FuncDecl where
-    show a = showFunc 0 a
+--instance Show FuncDecl where
+    --show a = showFunc 0 a
 instance Show ProgDecl where
-    show (Program xs) = "Program {\n" ++ showFuncList 2 xs ++ "}"
+    show (Program stmt) = "Program {\n" ++ showStmt 2 stmt ++ "}"
 
 lexer = Token.makeTokenParser emptyDef{ 
         Token.commentStart    = "/*",
@@ -80,7 +83,7 @@ lexer = Token.makeTokenParser emptyDef{
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
                                   "vector-set!", "nil", "return", "function",
-                                  "let", "define"
+                                  "let", "define", "lambda"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
@@ -122,6 +125,7 @@ statement =  try (parens stmtList)
          <|> try (parens arrayDefStmt)
          <|> try (parens arrayAssignStmt)
          <|> try (parens returnStmt)
+         <|> try (parens funcDeclStmt)
 stmtList :: Parser Stmt
 stmtList = 
   do reserved "begin"
@@ -166,8 +170,13 @@ returnStmt =
   do reserved "return"
      expr <- expression
      return $ Return expr
-
-
+funcDeclStmt :: Parser Stmt
+funcDeclStmt = do reserved "define";
+                   cls <- parens $ many identifier;
+                   stmts <- statement;
+                   -- The Dummy Variable Hack
+                   if (length cls) > 1 then return $ Assign (head cls) (Function (tail cls) stmts)
+                                       else return $ Assign (head cls) (Function [""] stmts)
 
 expression :: Parser Expr
 expression = constExpr
@@ -181,6 +190,7 @@ expression = constExpr
           <|> try (parens rExpr)
           <|> try (parens letExpr)
           <|> try (parens callExpr)
+          <|> try (parens lambdaExpr)
 
 constExpr :: Parser Expr
 constExpr = try (liftM DoubleLit float)
@@ -247,9 +257,19 @@ rBinOp = (reservedOp "<" >> return WhileParser.LT)
 
 callExpr :: Parser Expr
 callExpr =
-  do funcName <- identifier
+  do func <- expression
      params <- many expression
-     return $ Call funcName params
+     return $ Call func params
+
+lambdaExpr :: Parser Expr
+lambdaExpr =  try(do reserved "lambda"
+                     var <- identifier
+                     expr <- expression
+                     return $ Function [var] $ Return expr)
+          <|> try(do reserved "lambda"
+                     vlist <- parens (many identifier)
+                     expr <- expression
+                     return $ Function vlist $ Return expr)
 
 letExpr :: Parser Expr
 letExpr =
@@ -259,16 +279,10 @@ letExpr =
      bindExpr <- expression
      return $ Let varName varBind bindExpr
 
-functionDecl :: Parser FuncDecl
-functionDecl = do reserved "define"
-                  cls <- parens $ many identifier
-                  stmts <- statement
-                  return $ Function (head cls) (tail cls) stmts
-
 programDecl :: Parser ProgDecl
 programDecl = do whiteSpace
-                 funcs <- many (parens functionDecl)
-                 return $ Program funcs
+                 stmts <- many statement
+                 return $ Program $ StmtList stmts
 
 parseString :: String -> Stmt
 parseString str =
@@ -284,8 +298,8 @@ parseProgramStr str =
 
 
 test1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
-
-
+test2 = "(set! a 0) (set! y (lambda (p q r s) (* q r)))  (set! x (lambda p (+ p 5))) (set! z (x y y))"
+expr1 = "(lambda (p q r s) (* q r))"
 testParser :: Parsec String Int RBinOp
 testParser = whiteSpace >> testOp
 test :: String -> RBinOp
