@@ -59,16 +59,8 @@ showStmt t stmt = [' ' | x <- [1..t]] ++ case stmt of
     (ArrayDef str expr) -> "ArrayDef " ++ show str ++ " " ++ show expr ++ "\n"
     (ArrayAssign str expr1 expr2) -> "ArrayAssign " ++ show str ++ " " ++ show expr1 ++ " " ++ show expr2 ++ "\n"
     (Return expr) -> "Return " ++ show expr ++ "\n"
---showFuncList :: Int -> [FuncDecl] -> String
---showFuncList _ [] = ""
---showFuncList t (x:xs) = showFunc t x ++ showFuncList t xs
---showFunc :: Int -> FuncDecl -> String
---showFunc t (Function func para stmt) = [' ' | x <- [1..t]] ++ "Function " ++ show func ++ " " ++ show para 
-                                       -- ++ " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
 instance Show Stmt where
     show a = showStmt 0 a
---instance Show FuncDecl where
-    --show a = showFunc 0 a
 instance Show ProgDecl where
     show (Program stmt) = "Program {\n" ++ showStmt 2 stmt ++ "}"
 
