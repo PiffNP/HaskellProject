@@ -233,8 +233,14 @@ callExpr =
      return $ Call func params
 
 lambdaExpr :: Parser Expr
-lambdaExpr =    do {reserved "lambda"; var <- identifier; expr <- expression; return $ Function [var] $ Return expr}
-                <|> do {reserved "lambda2"; vlist <- parens (many identifier); expr <- expression; return $ Function vlist $ Return expr}
+lambdaExpr =  try(do reserved "lambda"
+                     var <- identifier
+                     expr <- expression
+                     return $ Function [var] $ Return expr)
+          <|> try(do reserved "lambda"
+                     vlist <- parens (many identifier)
+                     expr <- expression
+                     return $ Function vlist $ Return expr)
 
 letExpr :: Parser Expr
 letExpr =
