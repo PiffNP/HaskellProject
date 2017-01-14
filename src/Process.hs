@@ -315,8 +315,8 @@ test_subarray = "(define (main) (begin (make-vector a 4) (make-vector b 4) (vect
 
 -- Cases for anonymous function, and passing anonymous functions as parameters
 test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10))))"
-test_multi_lambda = "(set! x (lambda2 (q w e) (+ q (+ w e)))) (define (main) (return (x 42 53 53)))"
-test_passing_partial = "(set! x (lambda2 (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15)))))"
+test_multi_lambda = "(set! x (lambda (q w e) (+ q (+ w e)))) (define (main) (return (x 42 53 53)))"
+test_passing_partial = "(set! x (lambda (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15)))))"
 
 
 -- Cases for dynamic scoping and zero parameter functions

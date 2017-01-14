@@ -54,7 +54,7 @@ lexer = Token.makeTokenParser emptyDef{
                                   "not", "and", "or", "cons", "car",
                                   "cdr", "vector-ref", "make-vector",
                                   "vector-set!", "nil", "return", "function",
-                                  "let", "define", "lambda", "lambda2"
+                                  "let", "define", "lambda"
                                 ],
         Token.reservedOpNames = ["+", "-", "*", "/", "<", "=",
                                  "<", "<=", ">", ">=", "!"
