@@ -18,7 +18,6 @@ data Stmt = StmtList [Stmt]
           | ArrayDef String Expr
           | ArrayAssign String Expr Expr
           | Return Expr
-            deriving (Show)
 data Expr = BoolLit Bool 
           | IntLit Integer
           | DoubleLit Double
@@ -37,11 +36,38 @@ data Expr = BoolLit Bool
           | Call String [Expr]
           | Let String Expr Expr
             deriving (Show)
-data FuncDecl = Function String [String] Stmt deriving (Show)
-data ProgDecl = Program [FuncDecl] deriving (Show)
+data FuncDecl = Function String [String] Stmt
+data ProgDecl = Program [FuncDecl]
 data BBinOp = And | Or deriving (Show)
 data RBinOp = EQ | GE | LE | GT | LT deriving (Show)
 data ABinOp = Add | Subtract | Multiply | Divide deriving (Show)
+
+-- pretty-printer
+showStmtList :: Int -> [Stmt] -> String
+showStmtList _ [] = ""
+showStmtList t (x:xs) = (showStmt t x) ++ (showStmtList t xs)
+showStmt :: Int -> Stmt -> String
+showStmt t stmt = [' ' | x <- [1..t]] ++ case stmt of
+    (StmtList (x:xs)) -> "StatementList [\n" ++ showStmtList (t+2) (x:xs) ++ [' ' | x <- [1..t]] ++ "]\n"
+    (Assign str expr) -> "Assign " ++ show str ++ " " ++ show expr ++ "\n"
+    (Skip) -> "Skip\n"
+    (If expr a b) -> "If " ++ show expr ++ ":\n" ++ showStmt (t+2) a ++ [' ' | x <- [1..t]] ++ "Else:\n" ++ showStmt (t+2) b
+    (While expr a) -> "While " ++ show expr ++ ":\n" ++ showStmt (t+2) a
+    (ArrayDef str expr) -> "ArrayDef " ++ show str ++ " " ++ show expr ++ "\n"
+    (ArrayAssign str expr1 expr2) -> "ArrayAssign " ++ show str ++ " " ++ show expr1 ++ " " ++ show expr2 ++ "\n"
+    (Return expr) -> "Return " ++ show expr ++ "\n"
+showFuncList :: Int -> [FuncDecl] -> String
+showFuncList _ [] = ""
+showFuncList t (x:xs) = showFunc t x ++ showFuncList t xs
+showFunc :: Int -> FuncDecl -> String
+showFunc t (Function func para stmt) = [' ' | x <- [1..t]] ++ "Function " ++ show func ++ " " ++ show para 
+                                       ++ " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
+instance Show Stmt where
+    show a = showStmt 0 a
+instance Show FuncDecl where
+    show a = showFunc 0 a
+instance Show ProgDecl where
+    show (Program xs) = "Program {\n" ++ showFuncList 2 xs ++ "}"
 
 lexer = Token.makeTokenParser emptyDef{ 
         Token.commentStart    = "/*",
