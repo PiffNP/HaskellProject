@@ -25,7 +25,7 @@ main = do
                 ["-repl"] -> repl
                 ["-test"] -> do Test.test_exprs
                                 Test.test_stmts
-                otherwise -> putStrLn "usage:\n  ki -repl\n  ki -i <file> [-o <file>]\n  ki -t <file> [-o <file>]"
+                otherwise -> putStrLn "usage:\n  ki -repl\n  ki -i <file> [-o <file>]\n  ki -t <file> [-o <file>]\n  ki -test\n"
 
 processLine :: Handle -> Handle -> Int -> String -> String -> IO ()
 processLine inh ouh lineno prog mode =
