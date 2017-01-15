@@ -127,6 +127,7 @@ statement =  try (parens stmtList)
          <|> try (parens arrayDefStmt)
          <|> try (parens arrayAssignStmt)
          <|> try (parens returnStmt)
+         <|> try (parens funcDeclStmt)
 
 stmtList :: Parser Stmt
 stmtList = 
