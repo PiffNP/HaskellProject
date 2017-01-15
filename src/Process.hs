@@ -28,11 +28,11 @@ nullSymState = [Map.empty]
 
 -- Aliases to switch between global probe and local probe mode when updating variables
 
---symUpdate = localSymUpdate
---symArrUpdate = localSymArrUpdate
+symUpdate = localSymUpdate
+symArrUpdate = localSymArrUpdate
 
-symUpdate = globalSymUpdate
-symArrUpdate = globalSymArrUpdate
+--symUpdate = globalSymUpdate
+--symArrUpdate = globalSymArrUpdate
 
 -- This language is defective in itself for it does not distinguish between "declare a new variable" and "change a existing var"
 
@@ -72,9 +72,8 @@ globalSymArrUpdate sym name idx expr = case symLookup sym name of
                                                 else error $ "Illegal subscription " ++ show idx ++ " in " ++ name ++ "[" ++ show len ++ "]"
                                             otherwise -> error $ "Variable is not an array: " ++ show name
 
--- Test code for global probing
-test_global_probe = "(define (f a) (begin (set! x 10) (set! y 5) (return x))) (define (main) (begin (set! x 5) (set! tmp (f 0)) (return x) ))"
-test_global_array_probe = "(define (f a) (begin (vector-set! x 0 5) (return 0))) (define (main) (begin (make-vector x 10) (set! tmp (f 0)) (return (vector-ref x 0)) ))"
+-- Test code for global probing; On global probing this outputs 10, on local probing this outputs 5.
+--test_global_probe = "(define (f a) (begin (set! x 10) (set! y 5) (return x))) (define (main) (begin (set! x 5) (set! tmp (f 0)) (return x) ))"
 
 symLookup :: SymState -> String -> Maybe Variable
 symLookup [] _ = Nothing
