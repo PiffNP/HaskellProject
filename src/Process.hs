@@ -25,13 +25,23 @@ nullSymState :: SymState
 nullSymState = [Map.empty]
 
 -- This is to wrap the dynamic scoping model
--- For this model, changes are local. It's easy to make global changes happen though(only this function requires change).
 
-symUpdate :: SymState -> String -> Variable -> SymState
-symUpdate (t:ts) name expr = (Map.insert name expr t):ts
+-- Aliases to switch between global probe and local probe mode when updating variables
 
-symArrUpdate :: SymState -> String -> Integer -> Variable -> SymState
-symArrUpdate (t:ts) name idx expr = (nt:ts) where
+--symUpdate = localSymUpdate
+--symArrUpdate = localSymArrUpdate
+
+symUpdate = globalSymUpdate
+symArrUpdate = globalSymArrUpdate
+
+-- This language is defective in itself for it does not distinguish between "declare a new variable" and "change a existing var"
+
+-- These are the functions that updates the symbol table only on the top of the stack. Safer variant for recursive calls.
+localSymUpdate :: SymState -> String -> Variable -> SymState
+localSymUpdate (t:ts) name expr = (Map.insert name expr t):ts
+
+localSymArrUpdate :: SymState -> String -> Integer -> Variable -> SymState
+localSymArrUpdate (t:ts) name idx expr = (nt:ts) where
        nt = case (Map.lookup name t) of
             Nothing -> error $ "Variable not found: " ++ show name
             Just (ArrayVar (len, content)) ->
@@ -40,6 +50,31 @@ symArrUpdate (t:ts) name idx expr = (nt:ts) where
                 else error $ "Illegal subscription " ++ show idx ++ " in " ++ name ++ "[" ++ show len ++ "]"
             otherwise -> error $ "Variable is not an array: " ++ show name
 
+
+-- These are the functions that updates the symbol table across the whole stack. Use with caution though, they may backfire.
+
+
+attemptUpdate :: SymState -> String -> Variable -> (SymState, Bool)
+attemptUpdate [] _ _ = ([], False)
+attemptUpdate (t:ts) name var = if Map.member name t then let nt = (Map.insert name var t) in ((nt:ts), True)
+                                                     else ((t:cts), cb) where (cts, cb) = attemptUpdate ts name var
+
+globalSymUpdate :: SymState -> String -> Variable -> SymState
+globalSymUpdate sym@(t:ts) name expr = let (upd, flag) = attemptUpdate sym name expr in
+                                            if flag then upd else (nt:ts) where nt = (Map.insert name expr t)
+
+globalSymArrUpdate :: SymState -> String -> Integer -> Variable -> SymState
+globalSymArrUpdate sym name idx expr = case symLookup sym name of
+                                            Nothing -> error $ "Variable not found: " ++ show name
+                                            Just (ArrayVar (len, content)) ->
+                                                if ((idx >= 0) && (idx < len))
+                                                then let updated = (ArrayVar (len, (Map.insert idx expr content))) in (globalSymUpdate sym name updated)
+                                                else error $ "Illegal subscription " ++ show idx ++ " in " ++ name ++ "[" ++ show len ++ "]"
+                                            otherwise -> error $ "Variable is not an array: " ++ show name
+
+-- Test code for global probing
+test_global_probe = "(define (f a) (begin (set! x 10) (set! y 5) (return x))) (define (main) (begin (set! x 5) (set! tmp (f 0)) (return x) ))"
+test_global_array_probe = "(define (f a) (begin (vector-set! x 0 5) (return 0))) (define (main) (begin (make-vector x 10) (set! tmp (f 0)) (return (vector-ref x 0)) ))"
 
 symLookup :: SymState -> String -> Maybe Variable
 symLookup [] _ = Nothing
@@ -88,8 +123,8 @@ evalStmt stmt = case stmt of
     }
     (Assign varName expr) -> 
         do {
-            symbolTable <- get;
             val <- evalExpr expr;
+            symbolTable <- get;
             put (symUpdate symbolTable varName val);
         }
     Skip -> return ()
@@ -114,25 +149,25 @@ evalStmt stmt = case stmt of
         }
     (ArrayDef arrayName expr) ->
         do{
-            symbolTable <- get;
             length <- evalExpr expr;
+            symbolTable <- get;
             case length of
                 (IntVar l) -> put (symUpdate symbolTable arrayName (ArrayVar (l, Map.fromList [])));
                 otherwise -> error $ "incompatible type for array length: " ++ show (toConstr length)
         }
     (ArrayAssign arrayName expr1 expr2) ->
         do{
-            symbolTable <- get;
             index <- evalExpr expr1;
             val <- evalExpr expr2;
+            symbolTable <- get;
             case index of
                 (IntVar l) -> put (symArrUpdate symbolTable arrayName l val);
                 otherwise -> error $ "incompatible type for array index: " ++ show (toConstr index)
         }
     (Return expr) ->
         do {
-            symbolTable <- get;
             val <- evalExpr expr;
+            symbolTable <- get;
             put (symUpdate symbolTable "return" val)
         }
 
@@ -178,8 +213,8 @@ evalExpr expr = case expr of
         }
     (ArrayEntry arrayName expr) ->
         do {
-            symbolTable <- get;
             index <- evalExpr expr;
+            symbolTable <- get;
             case index of
                 (IntVar x) -> case symArrLookup symbolTable arrayName x of
                                 Just x -> return x
@@ -217,7 +252,6 @@ evalExpr expr = case expr of
         }
     (Call func params) ->
         do {
-            sym <- get;
             f <- evalExpr func;
             p <- evalExprList params;
             evalPartial (bindVar f p)
@@ -225,8 +259,8 @@ evalExpr expr = case expr of
     (Function vars stmt) -> return (Partial vars [] stmt)
     (Let varName varExpr expr) ->
         do {
-            sym <- get;
             value <- evalExpr varExpr;
+            sym <- get;
             put (enterBlock sym [varName] [value]);
             ret <- evalExpr expr;
             sym <- get;
