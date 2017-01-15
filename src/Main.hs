@@ -1,5 +1,8 @@
 module Main where
+import Process
+import WhileParser
 import REPL
+import Text.ParserCombinators.Parsec
 import System.Environment (getArgs)
 import System.IO
 
