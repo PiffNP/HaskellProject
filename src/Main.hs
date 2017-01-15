@@ -1,6 +1,7 @@
 module Main where
-import Process
+import Spec
 import WhileParser
+import Process
 import REPL
 import Text.ParserCombinators.Parsec
 import System.Environment (getArgs)

@@ -1,5 +1,6 @@
 module Test where
 
+import Spec
 import WhileParser
 import Process
 import Control.Exception

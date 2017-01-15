@@ -1,6 +1,7 @@
 module REPL where
-import Process
+import Spec
 import WhileParser
+import Process
 import qualified Data.Map.Strict as Map
 import Text.Parsec (Parsec, runP)
 import Text.ParserCombinators.Parsec

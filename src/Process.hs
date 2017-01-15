@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Process where
+import Spec
 import WhileParser
 import Data.Data
 import Data.Maybe
@@ -264,11 +265,11 @@ evalRExpr op (DoubleVar val1) (IntVar val2) = evalRExpr op (DoubleVar val1) (Dou
 evalRExpr op (IntVar val1) (DoubleVar val2) = evalRExpr op (DoubleVar $ fromInteger val1) (DoubleVar val2)
 evalRExpr op (DoubleVar val1) (DoubleVar val2) =
     case op of
-        WhileParser.EQ -> BoolVar (val1 == val2)
-        WhileParser.GE -> BoolVar (val1 >= val2)
-        WhileParser.LE -> BoolVar (val1 <= val2)
-        WhileParser.GT -> BoolVar (val1 > val2)
-        WhileParser.LT -> BoolVar (val1 < val2)
+        Spec.EQ -> BoolVar (val1 == val2)
+        Spec.GE -> BoolVar (val1 >= val2)
+        Spec.LE -> BoolVar (val1 <= val2)
+        Spec.GT -> BoolVar (val1 > val2)
+        Spec.LT -> BoolVar (val1 < val2)
 evalRExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
 
 
