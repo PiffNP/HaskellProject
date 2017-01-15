@@ -16,7 +16,7 @@ data Variable = Nil
               | DummyVar
               | ArrayVar (Integer, Map.Map Integer Variable)
               | Partial [String] [Variable] Stmt
-              deriving (Show, Typeable, Data)
+              deriving (Show, Typeable, Data, Eq)
 type SymbolTable = Map.Map String Variable
 type SymState = [SymbolTable]
 
@@ -298,32 +298,3 @@ runProg str = evalProg $ parseProgramStr str
 
 runStmt :: String -> SymState
 runStmt str = execState (evalStmt $ parseString str) nullSymState
-
-
--- Some cases for testing new implementation of array, the let clause, first order functions
-test_ret = "(define (main) (begin (return 10)))" -- Outputs 10
-test_call = "(define (test x y z) (begin (return (let q (+ x y) (+ z q))) )) (define (main) (return (test 5 10 15) ) )" -- Outputs 30
-test_earlyhalt = "(define (main) (begin (set! x 10) (while (> x 0) (begin (set! x (- x 1)) (return x) ) ) ) )" -- Outputs 9 instead of 0
-test_assign = "(define (main) (begin (make-vector a 10) (vector-set! a 5 10) (return (vector-ref a 5))) )" -- Outputs 10
-test_miss = "(define (main) (begin (make-vector a 10) (vector-set! a 5 10) (return (vector-ref a 6))) )" -- Reports no initialization
-test_bound = "(define (main) (begin (make-vector a 10) (vector-set! a 10 10)) )" -- Reports out of bound
-test_missret = "(define (main) (set! x 10) )" -- Reports no return value
-test_shadowing = "(define (main) (begin (set! x 10) (set! y (let x 15 x)) (return y)))" -- Outputs 15
-test_recursive = "(define (add x) (if (= x 0) (return 100) (return (+ x (add (- x 1)))))) (define (main) (return (add 100)))" -- Outputs 5150
-test_subarray = "(define (main) (begin (make-vector a 4) (make-vector b 4) (vector-set! a 0 b) (vector-set! b 0 1) (set! c (vector-ref a 0))" ++
-                "(return (vector-ref c 0)) ))" -- Reports uninitialized value, which is actually the correct behaviour.
-
--- Cases for anonymous function, and passing anonymous functions as parameters
-test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10))))"
-test_multi_lambda = "(set! x (lambda (q w e) (+ q (+ w e)))) (define (main) (return (x 42 53 53)))"
-test_passing_partial = "(set! x (lambda (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15)))))"
-
-
--- Cases for dynamic scoping and zero parameter functions
-test_scoping_1 = "(define (f1) (begin (set! a 10) (return (f2)))) (define (f2) (return a)) (set! main f1)"
-test_scoping_2 = "(define (f1 x) (begin (set! a x) (return 0))) (set! tmp (lambda x (f1 x))) (define (main) (return (+ (tmp 5) a)))"
-test_scoping_3 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5) "
-
--- This should report error
-
-test_zero_params = "(define (f1) (return 0)) (define (main) (return (f1 0)))"

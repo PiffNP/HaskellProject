@@ -18,7 +18,7 @@ data Stmt = StmtList [Stmt]
           | ArrayDef String Expr
           | ArrayAssign String Expr Expr
           | Return Expr
-            deriving (Data, Typeable)
+            deriving (Data, Typeable, Eq)
 data Expr = BoolLit Bool 
           | IntLit Integer
           | DoubleLit Double
@@ -37,11 +37,11 @@ data Expr = BoolLit Bool
           | Call Expr [Expr]
           | Function [String] Stmt
           | Let String Expr Expr
-            deriving (Show, Data, Typeable)
+            deriving (Show, Data, Typeable, Eq)
 data ProgDecl = Program Stmt
-data BBinOp = And | Or deriving (Show, Data, Typeable)
-data RBinOp = EQ | GE | LE | GT | LT deriving (Show, Data, Typeable)
-data ABinOp = Add | Subtract | Multiply | Divide deriving (Show, Data, Typeable)
+data BBinOp = And | Or deriving (Show, Data, Typeable, Eq)
+data RBinOp = EQ | GE | LE | GT | LT deriving (Show, Data, Typeable, Eq)
+data ABinOp = Add | Subtract | Multiply | Divide deriving (Show, Data, Typeable, Eq)
 
 -- pretty-printer
 showStmtList :: Int -> [Stmt] -> String
@@ -288,9 +288,6 @@ parseProgramStr str =
         Left e -> error $ show e
         Right r -> r
 
-
-test1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
-test2 = "(set! a 0) (set! y (lambda (p q r s) (* q r)))  (set! x (lambda p (+ p 5))) (set! z (x y y))"
 expr1 = "(lambda (p q r s) (* q r))"
 testParser :: Parsec String Int RBinOp
 testParser = whiteSpace >> testOp
