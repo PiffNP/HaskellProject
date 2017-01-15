@@ -1,0 +1,60 @@
+《函数式语言程序设计》大作业
+计科30 潘薪宇 郑弘宇
+软件31 罗剑桥
+一、得分项实现情况
+1.功能项目：独立主程序、REPL、解释器、文法解析、Pretty-printer、错误处理、代码测试、代码风格
+2.语言特性：逻辑表达式、浮点算数表达式、字符串与列表、While语言、数组、 一阶函数、文法作用域、高阶函数
+
+二、功能项目部分实现简述
+1.独立主程序：
+2.REPL：
+3.文法解析：前端文法解析基于Parsec库实现。因为Parsec是一个比较成熟并被广泛使用的框架，这里就只简单提实现时需要注意两点：一是在匹配时可能需要backtrack的位置要使用try避免消耗输入；另外在匹配时需要保证消耗完所有输入，避免程序段中间出现错误时直接截断而不输出正确的报错信息。我们的AST定义如下所示。
+data ProgDecl = Program Stmt
+data Stmt = StmtList [Stmt]
+          | Assign String Expr
+          | Skip          
+          | If Expr Stmt Stmt 
+          | While Expr Stmt
+          | ArrayDef String Expr
+          | ArrayAssign String Expr Expr
+          | Return Expr
+data Expr = BoolLit Bool 
+          | IntLit Integer
+          | DoubleLit Double
+          | CharLit Char
+          | NilList
+          | Var String
+          | ArrayEntry String Expr
+          | ABinary ABinOp Expr Expr
+          | Not Expr
+          | BBinary BBinOp Expr Expr
+          | RBinary RBinOp Expr Expr
+          | Pair Expr Expr
+          | PairFst Expr
+          | PairSnd Expr
+          | Call Expr [Expr]
+          | Function [String] Stmt
+          | Let String Expr Expr
+data BBinOp = And | Or deriving
+data RBinOp = EQ | GE | LE | GT | LT
+data ABinOp = Add | Subtract | Multiply | Divide
+
+3.解释器：
+4.Pretty-printer：
+5.错误处理：
+6.代码测试：
+7.代码风格：
+
+三、前端文法解析实现简述
+
+
+
+四、语言特性部分实现简述
+1.逻辑表达式：
+2.浮点算数表达式：
+3.字符串和列表：
+4.While语言：
+5.数组：
+6.一阶函数：
+7.文法作用域：
+8.高阶函数：
