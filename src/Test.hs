@@ -132,23 +132,37 @@ test_stmt2_10 = do res <- try (print $ runProg test_subarray) :: IO (Either Some
                       otherwise -> putStrLn $ "OK, passed this test."
 
 -- Cases for anonymous function, and passing anonymous functions as parameters
-test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10))))"
-test_multi_lambda = "(set! x (lambda (q w e) (+ q (+ w e)))) (define (main) (return (x 42 53 53)))"
-test_passing_partial = "(set! x (lambda (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15)))))"
+test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10)))"
+test_multi_lambda = "(set! x (lambda (q w e) (* q (+ w e)))) (define (main) (return (x 42 53 53)))"
+test_passing_partial = "(set! x (lambda (q w e) (+ q (+ w e)))) (set! y (lambda d (+ (d 10) (d 15)))) (define (main) (return (y (x -10 -15))))"
 
+test_stmt3_1 = (runProg test_lambda_base) == (IntVar 15)
+test_stmt3_2 = (runProg test_multi_lambda) == (IntVar 4452)
+test_stmt3_3 = (runProg test_multi_lambda) == (IntVar (-25))
 
 -- Cases for dynamic scoping and zero parameter functions
 test_scoping_1 = "(define (f1) (begin (set! a 10) (return (f2)))) (define (f2) (return a)) (set! main f1)"
 test_scoping_2 = "(define (f1 x) (begin (set! a x) (return 0))) (set! tmp (lambda x (f1 x))) (define (main) (return (+ (tmp 5) a)))"
-test_scoping_3 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5) "
+test_scoping_3 = "(define (f1 x) (begin (set! a x) (return (tmp x)))) (set! tmp (lambda x (+ a x))) (define (main) (return (f1 5)))"
+test_scoping_4 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5) "
+
+test_stmt3_4 = (runProg test_scoping_1) == (IntVar 10)
+test_stmt3_5 = do res <- try (print $ runProg test_scoping_2) :: IO (Either SomeException ())
+                  case res of
+                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       otherwise -> putStrLn $ "OK, passed this test."
+test_stmt3_6 = (runProg test_scoping_3) == (IntVar 10)
+test_stmt3_7 = (runProg test_scoping_4) == (IntVar 10)
 
 -- This should report error
-
 test_zero_params = "(define (f1) (return 0)) (define (main) (return (f1 0)))"
+-- test_func1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
+-- test_func2 = "(set! a 0) (set! y (lambda (p q r s) (* q r))) (set! x (lambda p (+ p 5))) (set! z (x y y))"
 
-testw1 = "(define (main x y) (begin (set! a (let z 100 (* x y))) (set! b (othercall a b 199)) (return z))) (define (PureRandom) (return 4))"
-testw2 = "(set! a 0) (set! y (lambda (p q r s) (* q r)))  (set! x (lambda p (+ p 5))) (set! z (x y y))"
-
+test_stmt3_8 = do res <- try (print $ runProg test_zero_params) :: IO (Either SomeException ())
+                  case res of
+                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       otherwise -> putStrLn $ "OK, passed this test."
 
 test_exprs = do
           quickCheck test_expr1_1
@@ -157,7 +171,6 @@ test_exprs = do
           quickCheck test_expr1_4
           test_expr1_5
           test_expr1_6
-          
           quickCheck test_expr2_1
           quickCheck test_expr2_2
           quickCheck test_expr2_3
@@ -172,23 +185,21 @@ test_exprs = do
           quickCheck test_expr2_12
           quickCheck test_expr2_13
           quickCheck test_expr2_14
-          -- quickCheck test_expr2_15 wrong!
+          quickCheck test_expr2_15
           test_expr2_16
           test_expr2_17
           test_expr2_18
-          
           quickCheck test_expr3_1
           quickCheck test_expr3_2
           quickCheck test_expr3_3
 
-main = do        
+test_stmts = do        
           quickCheck test_stmt1_1
           quickCheck test_stmt1_2
           quickCheck test_stmt1_3
           quickCheck test_stmt1_4
           quickCheck test_stmt1_5
           quickCheck test_stmt1_6
-
           quickCheck test_stmt2_1
           quickCheck test_stmt2_2
           quickCheck test_stmt2_3
@@ -199,4 +210,11 @@ main = do
           quickCheck test_stmt2_8
           quickCheck test_stmt2_9
           test_stmt2_10
-          -- putStrLn $ show test_stmt2_6
+          quickCheck test_stmt3_1
+          quickCheck test_stmt3_2
+          quickCheck test_stmt3_3
+          quickCheck test_stmt3_4
+          test_stmt3_5
+          quickCheck test_stmt3_6
+          quickCheck test_stmt3_7
+          test_stmt3_8

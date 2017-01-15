@@ -300,4 +300,3 @@ parseProgramStr str =
     case parse programDecl "" str of
         Left e -> error $ show e
         Right r -> r
-

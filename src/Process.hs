@@ -36,7 +36,7 @@ symArrUpdate (t:ts) name idx expr = (nt:ts) where
             Just (ArrayVar (len, content)) ->
                 if ((idx >= 0) && (idx < len))
                 then let updated = (ArrayVar (len, (Map.insert idx expr content))) in (Map.insert name updated t)
-                else error $ "Illegal subscription " ++ show idx ++ " in " ++ show name ++ "[" ++ show len ++ "]"
+                else error $ "Illegal subscription " ++ show idx ++ " in " ++ name ++ "[" ++ show len ++ "]"
             otherwise -> error $ "Variable is not an array: " ++ show name
 
 
@@ -182,7 +182,7 @@ evalExpr expr = case expr of
             case index of
                 (IntVar x) -> case symArrLookup symbolTable arrayName x of
                                 Just x -> return x
-                                Nothing -> return (error $ "Array entry is not initialized: " ++ show(arrayName) ++ "@" ++ show(x))
+                                Nothing -> return (error $ "Array entry is not initialized: " ++ arrayName ++ "[" ++ show(x) ++ "]")
                 otherwise -> return (error $ "Incompatible type for subscription: " ++ show (toConstr index))
         }
     (ABinary op expr1 expr2) -> 
