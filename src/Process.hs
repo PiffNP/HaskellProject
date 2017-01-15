@@ -272,7 +272,6 @@ evalRExpr op (DoubleVar val1) (DoubleVar val2) =
         Spec.LT -> BoolVar (val1 < val2)
 evalRExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
 
-
 evalPartial :: Variable -> State SymState Variable
 evalPartial f = case f of
                 (Partial var param stmt) ->

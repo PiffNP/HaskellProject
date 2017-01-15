@@ -3,6 +3,7 @@ import Spec
 import WhileParser
 import Process
 import REPL
+import Test
 import Text.ParserCombinators.Parsec
 import System.Environment (getArgs)
 import System.IO
@@ -22,6 +23,8 @@ main = do
                 ["-t", file1] -> do inh <- openFile file1 ReadMode
                                     processLine inh stdout 1 "" ":t"
                 ["-repl"] -> repl
+                ["-test"] -> do Test.test_exprs
+                                Test.test_stmts
                 otherwise -> putStrLn "usage:\n  ki -repl\n  ki -i <file> [-o <file>]\n  ki -t <file> [-o <file>]"
 
 processLine :: Handle -> Handle -> Int -> String -> String -> IO ()

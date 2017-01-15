@@ -21,3 +21,4 @@ executable ki
                        ,parsec >= 3.1.9
                        ,mtl
                        ,containers
+                       ,QuickCheck
