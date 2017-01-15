@@ -8,7 +8,7 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
-import qualified Text.ParserCombinators.Parsec.Prim as Prim
+import qualified Text.Parsec.Prim as Prim
 
 data Stmt = StmtList [Stmt]
           | Assign String Expr
@@ -88,22 +88,26 @@ reservedOp = Token.reservedOp lexer
 parens     = Token.parens     lexer
 integer    = Token.integer    lexer
 whiteSpace = Token.whiteSpace lexer
-float      = Token.float      lexer
 charLiteral = Token.charLiteral lexer
 stringLiteral = Token.stringLiteral lexer 
-{-
+
+--{-
 -- In case that TA insists that the parser can
 -- not recognize exponent.
 lexeme     = Token.lexeme     lexer
 float = lexeme floating <?> "float"
 floating = do{
+    f <- lexeme sign;
     n <- many1 digit;
     char '.';
     fraction <- many1 digit;
     case reads (n ++ "." ++ fraction) of
-        [(x, "")] -> return x
+        [(x, "")] -> return (f x)
         _         -> Prim.parserZero
 }
+sign = (char '-' >> return negate)
+    <|> (char '+' >> return id)
+    <|> return id
 --}
 whileParser :: Parser Stmt
 whileParser = whiteSpace >> statement
@@ -192,7 +196,7 @@ expression = constExpr
 
 constExpr :: Parser Expr
 constExpr = try (liftM DoubleLit float)
-         <|> liftM IntLit integer
+         <|> try (liftM IntLit integer)
          <|> (reserved "True"  >> return (BoolLit True ))
          <|> (reserved "False" >> return (BoolLit False))
          <|> liftM CharLit charLiteral
