@@ -1,6 +1,7 @@
 module REPL where
-import Process
+import Spec
 import WhileParser
+import Process
 import qualified Data.Map.Strict as Map
 import Text.Parsec (Parsec, runP)
 import Text.ParserCombinators.Parsec
@@ -8,6 +9,7 @@ import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import Control.Monad.State.Lazy
 import Control.Monad
+import Control.Exception
 import System.Environment (getArgs)
 import System.IO
 
@@ -27,12 +29,14 @@ runCycle (state, lineno, laststmt) = do
                                                             putStr $ ((show lineno) ++ "> ");
                                                             runCycle (state, lineno + 1, laststmt)
                                                         }
-                                                    Right r -> let newstate = execState (evalStmt r) state in
-                                                                            do {
-                                                                                putStrLn (showSymState newstate);
-                                                                                putStr $ ((show lineno) ++ "> ");
-                                                                                runCycle (newstate, lineno + 1, r)
-                                                                            }
+                                                    Right r -> do
+                                                                  res <- Control.Exception.try (let newstate = execState (evalStmt r) state in (putStrLn (showSymState newstate))) :: IO (Either SomeException ())
+                                                                  case res of 
+                                                                      Left e -> do putStrLn $ "Wrong Input: " ++ show e
+                                                                                   putStr $ ((show lineno) ++ "> ")
+                                                                                   runCycle (state, lineno + 1, laststmt)
+                                                                      otherwise -> do putStr $ ((show lineno) ++ "> ")
+                                                                                      runCycle ((execState (evalStmt r) state), lineno + 1, r)
                                             ":p" -> case parse expression "" command of
                                                         Left e -> do {
                                                             putStrLn $  "Parsing Error: " ++ show(e);

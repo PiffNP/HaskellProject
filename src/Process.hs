@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Process where
+import Spec
 import WhileParser
 import Data.Data
 import Data.Maybe
@@ -36,7 +37,7 @@ symArrUpdate (t:ts) name idx expr = (nt:ts) where
             Just (ArrayVar (len, content)) ->
                 if ((idx >= 0) && (idx < len))
                 then let updated = (ArrayVar (len, (Map.insert idx expr content))) in (Map.insert name updated t)
-                else error $ "Illegal subscription " ++ show idx ++ " in " ++ show name ++ "[" ++ show len ++ "]"
+                else error $ "Illegal subscription " ++ show idx ++ " in " ++ name ++ "[" ++ show len ++ "]"
             otherwise -> error $ "Variable is not an array: " ++ show name
 
 
@@ -182,7 +183,7 @@ evalExpr expr = case expr of
             case index of
                 (IntVar x) -> case symArrLookup symbolTable arrayName x of
                                 Just x -> return x
-                                Nothing -> return (error $ "Array entry is not initialized: " ++ show(arrayName) ++ "@" ++ show(x))
+                                Nothing -> return (error $ "Array entry is not initialized: " ++ arrayName ++ "[" ++ show(x) ++ "]")
                 otherwise -> return (error $ "Incompatible type for subscription: " ++ show (toConstr index))
         }
     (ABinary op expr1 expr2) -> 
@@ -264,11 +265,11 @@ evalRExpr op (DoubleVar val1) (IntVar val2) = evalRExpr op (DoubleVar val1) (Dou
 evalRExpr op (IntVar val1) (DoubleVar val2) = evalRExpr op (DoubleVar $ fromInteger val1) (DoubleVar val2)
 evalRExpr op (DoubleVar val1) (DoubleVar val2) =
     case op of
-        WhileParser.EQ -> BoolVar (val1 == val2)
-        WhileParser.GE -> BoolVar (val1 >= val2)
-        WhileParser.LE -> BoolVar (val1 <= val2)
-        WhileParser.GT -> BoolVar (val1 > val2)
-        WhileParser.LT -> BoolVar (val1 < val2)
+        Spec.EQ -> BoolVar (val1 == val2)
+        Spec.GE -> BoolVar (val1 >= val2)
+        Spec.LE -> BoolVar (val1 <= val2)
+        Spec.GT -> BoolVar (val1 > val2)
+        Spec.LT -> BoolVar (val1 < val2)
 evalRExpr op val1 val2 = error $ unwords ["incompatible operands:", show op, show (toConstr val1), show (toConstr val2)]
 
 
