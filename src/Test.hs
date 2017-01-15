@@ -39,6 +39,7 @@ test_expr1_6 = do res <- try (print $ test_expr "(not 't')") :: IO (Either SomeE
                   case res of
                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
+test_expr1_7 x y z = (test_expr $ "(or " ++ (bool2str x) ++ "(and " ++ (bool2str y) ++ " " ++ (bool2str z) ++ "))") == (BoolVar (x || (y && z)))
 
 -- number expressions
 test_double_expr :: String -> Double
@@ -144,6 +145,9 @@ test_stmt2_10 = do res <- try (print $ runProg test_subarray) :: IO (Either Some
                    case res of
                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
+test_stmt2_11 = (runProg "(define (f a) (return (vector-ref a 0))) (define (main) (begin (make-vector a 4) (vector-set! a 0 4) (return (f a))))") == (IntVar 4)
+test_stmt2_12 :: Int -> Int -> Bool
+test_stmt2_12 a b = (runProg $ "(define (test x y z) (return (let q (+ x y) (let q (+ z z) (+ z q)))) ) (define (main) (return (test " ++ show(a) ++ " " ++ show(b) ++ " 15)))") == (IntVar 45)
 
 -- Cases for anonymous function, and passing anonymous functions as parameters
 test_lambda_base = "(set! x (lambda d (+ d 5))) (define (main) (return (x 10)))"
@@ -185,6 +189,7 @@ test_exprs = do
           quickCheck test_expr1_4
           test_expr1_5
           test_expr1_6
+          quickCheck test_expr1_7
           quickCheck test_expr2_1
           quickCheck test_expr2_2
           quickCheck test_expr2_3
@@ -225,6 +230,8 @@ test_stmts = do
           quickCheck test_stmt2_8
           quickCheck test_stmt2_9
           test_stmt2_10
+          quickCheck test_stmt2_11
+          quickCheck test_stmt2_12
           quickCheck test_stmt3_1
           quickCheck test_stmt3_2
           quickCheck test_stmt3_3
