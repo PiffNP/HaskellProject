@@ -33,11 +33,11 @@ test_expr1_3 = and [(test_expr $ "(and " ++ (bool2str e1) ++ " " ++ (bool2str e2
 test_expr1_4 = and [(test_expr $ "(or " ++ (bool2str e1) ++ " " ++ (bool2str e2) ++ ")") == (BoolVar (e1 || e2)) | e1 <- arr1, e2 <- arr1]
 test_expr1_5 = do res <- try (print $ test_expr "(or 1 True)") :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, type mismatch: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_expr1_6 = do res <- try (print $ test_expr "(not 't')") :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, type mismatch: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_expr1_7 x y z = (test_expr $ "(or " ++ (bool2str x) ++ "(and " ++ (bool2str y) ++ " " ++ (bool2str z) ++ "))") == (BoolVar (x || (y && z)))
 
@@ -76,15 +76,15 @@ test_expr2_15 = (test_expr $ "(>= -1.57 -1.10)") == (BoolVar False)
 --
 test_expr2_16 = do res <- try (print $ test_expr "(>= (-1.57) False)") :: IO (Either SomeException ())
                    case res of
-                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       Left e -> putStrLn $ "+++ OK, type mismatch: " ++ show e
                        otherwise -> putStrLn $ "OK, passed this test."
 test_expr2_17 = do res <- try (print $ test_expr "(+ 14 'c')") :: IO (Either SomeException ())
                    case res of
-                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       Left e -> putStrLn $ "+++ OK, type mismatch: " ++ show e
                        otherwise -> putStrLn $ "OK, passed this test."
 test_expr2_18 = do res <- try (print $ test_expr "(/ 52 Infinity)") :: IO (Either SomeException ())
                    case res of
-                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       Left e -> putStrLn $ "+++ OK, variable not found: " ++ show e
                        otherwise -> putStrLn $ "OK, passed this test."
 
 -- list expressions
@@ -107,7 +107,7 @@ test_stmt1_5 = test_stmt "(set! a 8) (set! b 4) (if (>= a b) (return 'a') (retur
 test_stmt1_6 = test_stmt "(set! a 80) (set! b 40) (set! c 0) (while (>= a (+ b c)) (set! c (+ c 1))) (return c)" == (IntVar 41)
 test_stmt1_7 = do res <- try (print $ test_stmt "(set! a 10) (if (a) (set! c 'a') (set! c 3)) (return c)") :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, type mismatch: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 
 -- Some cases for testing implementation of array, the let clause, first order functions
@@ -129,21 +129,21 @@ test_stmt2_3 = (runProg test_earlyhalt) == (IntVar 9)
 test_stmt2_4 = (runProg test_assign) == (IntVar 10)
 test_stmt2_5 = do res <- try (print $ runProg test_miss) :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, no initialization: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_stmt2_6 = do res <- try (print $ runProg test_bound) :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, out of bound: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_stmt2_7 = do res <- try (print $ runProg test_missret) :: IO (Either SomeException ())
                   case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, no return value: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_stmt2_8 = (runProg test_shadowing) == (IntVar 15)
 test_stmt2_9 = (runProg test_recursive) == (IntVar 5150)
 test_stmt2_10 = do res <- try (print $ runProg test_subarray) :: IO (Either SomeException ())
                    case res of
-                      Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                      Left e -> putStrLn $ "+++ OK, uninitialized value: " ++ show e
                       otherwise -> putStrLn $ "OK, passed this test."
 test_stmt2_11 = (runProg "(define (f a) (return (vector-ref a 0))) (define (main) (begin (make-vector a 4) (vector-set! a 0 4) (return (f a))))") == (IntVar 4)
 test_stmt2_12 :: Int -> Int -> Bool
@@ -167,7 +167,7 @@ test_scoping_4 = "(define (main) (return (+ a b))) (set! a 5) (set! b 5)"
 test_stmt3_4 = (runProg test_scoping_1) == (IntVar 10)
 test_stmt3_5 = do res <- try (print $ runProg test_scoping_2) :: IO (Either SomeException ())
                   case res of
-                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       Left e -> putStrLn $ "+++ OK, wrong scoping: " ++ show e
                        otherwise -> putStrLn $ "OK, passed this test."
 test_stmt3_6 = (runProg test_scoping_3) == (IntVar 10)
 test_stmt3_7 = (runProg test_scoping_4) == (IntVar 10)
@@ -179,10 +179,11 @@ test_zero_params = "(define (f1) (return 0)) (define (main) (return (f1 0)))"
 
 test_stmt3_8 = do res <- try (print $ runProg test_zero_params) :: IO (Either SomeException ())
                   case res of
-                       Left e -> putStrLn $ "+++ OK, Wrong Input: " ++ show e
+                       Left e -> putStrLn $ "+++ OK, too many arguments: " ++ show e
                        otherwise -> putStrLn $ "OK, passed this test."
 
 test_exprs = do
+          putStrLn "\ntesting boolean expressions..."
           quickCheck test_expr1_1
           quickCheck test_expr1_2
           quickCheck test_expr1_3
@@ -190,6 +191,7 @@ test_exprs = do
           test_expr1_5
           test_expr1_6
           quickCheck test_expr1_7
+          putStrLn "\ntesting arithmetic expressions..."
           quickCheck test_expr2_1
           quickCheck test_expr2_2
           quickCheck test_expr2_3
@@ -208,18 +210,22 @@ test_exprs = do
           test_expr2_16
           test_expr2_17
           test_expr2_18
+          putStrLn "\ntesting pair expressions..."
           quickCheck test_expr3_1
           quickCheck test_expr3_2
           quickCheck test_expr3_3
 
 test_stmts = do        
+          putStrLn "\ntesting assign statements..."
           quickCheck test_stmt1_1
           quickCheck test_stmt1_2
           quickCheck test_stmt1_3
+          putStrLn "\ntesting if/while statements..."
           quickCheck test_stmt1_4
           quickCheck test_stmt1_5
           quickCheck test_stmt1_6
           test_stmt1_7
+          putStrLn "\ntesting functions, arrays and let-clauses..."
           quickCheck test_stmt2_1
           quickCheck test_stmt2_2
           quickCheck test_stmt2_3
@@ -230,6 +236,7 @@ test_stmts = do
           quickCheck test_stmt2_8
           quickCheck test_stmt2_9
           test_stmt2_10
+          putStrLn "\ntesting scopings and higher-order functions..."
           quickCheck test_stmt2_11
           quickCheck test_stmt2_12
           quickCheck test_stmt3_1
