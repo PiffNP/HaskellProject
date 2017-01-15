@@ -58,23 +58,6 @@ runCycle (state, lineno, laststmt) = do
                                                         }
 
 
-processLine :: Handle -> Handle -> Int -> String -> String -> IO ()
-processLine inh ouh lineno prog mode =
-       do isEof <- hIsEOF inh
-          if isEof
-              then do case mode of
-                          ":i" -> hPutStr ouh $ show $ runProg prog;
-                          ":t" -> hPutStr ouh $ show $ parseProgramStr prog;
-                      hClose inh
-                      hClose ouh
-                      return ()
-              else do str <- hGetLine inh
-                      case parse whileParser "" str of
-                          Left e -> do putStrLn $ "Parsing Error: line " ++ ((show lineno) ++ "> ") ++ show(e)
-                                       processLine inh ouh (lineno + 1) (prog ++ " " ++ str) mode
-                          Right r -> processLine inh ouh (lineno + 1) (prog ++ " " ++ str) mode
-
-
 repl :: IO ()
 repl = do
             putStrLn $  "You are now at REPL Mode. :i to execute code, :p to print variable to screen " ++

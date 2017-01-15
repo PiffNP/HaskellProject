@@ -108,6 +108,12 @@ floating = do{
 whileParser :: Parser Stmt
 whileParser = whiteSpace >> statement
 
+funcStmt :: Parser Stmt
+funcStmt = try (parens funcDeclStmt)
+        <|> try (parens arrayDefStmt)
+        <|> try (parens arrayAssignStmt)
+        <|> try (parens assignStmt)
+
 statement :: Parser Stmt
 statement =  try (parens stmtList)
          <|> try (parens assignStmt)
@@ -117,7 +123,7 @@ statement =  try (parens stmtList)
          <|> try (parens arrayDefStmt)
          <|> try (parens arrayAssignStmt)
          <|> try (parens returnStmt)
-         <|> try (parens funcDeclStmt)
+
 stmtList :: Parser Stmt
 stmtList = 
   do reserved "begin"
@@ -273,7 +279,9 @@ letExpr =
 
 programDecl :: Parser ProgDecl
 programDecl = do whiteSpace
-                 stmts <- many statement
+                 stmts <- many funcStmt
+                 whiteSpace
+                 eof
                  return $ Program $ StmtList stmts
 
 parseString :: String -> Stmt
@@ -288,17 +296,3 @@ parseProgramStr str =
         Left e -> error $ show e
         Right r -> r
 
-expr1 = "(lambda (p q r s) (* q r))"
-testParser :: Parsec String Int RBinOp
-testParser = whiteSpace >> testOp
-test :: String -> RBinOp
-test str =
-    case runP testParser 0 "" str of
-        Left e  -> error $ show e
-        Right r -> r
-testOp :: Parsec String Int RBinOp
-testOp = (reservedOp "<" >> return WhileParser.LT)
-      <|> (reservedOp "<=" >> return WhileParser.LE)
-      <|> (reservedOp "=" >> return WhileParser.EQ)
-      <|> (reservedOp ">=" >> return WhileParser.GE)
-      <|> (reservedOp ">" >> return WhileParser.GT)
