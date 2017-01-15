@@ -1,0 +1,11 @@
+Interpreter usage:
+  ki -repl #Enter REPL mode 
+  ki -i <file> [-o <file>] #Evaluate and output return value
+  ki -t <file> [-o <file>] #Output AST 
+  ki -test #Test Samples
+
+REPL usage:
+  :i code # Execute code
+  :t # Print AST of last :i action
+  :p expr # Evaluate the expression
+  :q #Quit REPL
