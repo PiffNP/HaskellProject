@@ -49,7 +49,7 @@ showStmtList _ [] = ""
 showStmtList t (x:xs) = (showStmt t x) ++ (showStmtList t xs)
 showStmt :: Int -> Stmt -> String
 showStmt t stmt = [' ' | x <- [1..t]] ++ case stmt of
-    (StmtList (x:xs)) -> "StatementList [\n" ++ showStmtList (t+2) (x:xs) ++ [' ' | x <- [1..t]] ++ "]\n"
+    (StmtList xs) -> "StatementList [\n" ++ showStmtList (t+2) xs ++ [' ' | x <- [1..t]] ++ "]\n"
     (Assign str expr) -> case expr of
         (Function s stmt) -> "Assign " ++ show str ++ " Function " ++ show s ++  " {\n" ++ showStmt (t+2) stmt ++ [' ' | x <- [1..t]] ++ "}\n"
         _ -> "Assign " ++ show str ++ " " ++ show expr ++ [' ' | x <- [1..t]] ++ "\n"
